@@ -1,11 +1,12 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { DayProgress, Greeting, catFromCategory, salutationFor, type DayProgressItem } from '../../design';
-import type { ScheduledChore, User } from '../../types';
-import { gates, isDone, type ChoreView } from './choreView';
+import type { HomeBacklogItem, ScheduledChore, User } from '../../types';
+import { formatDuration, gates, isDone, type ChoreView } from './choreView';
 import { GoalNudge } from './GoalCard';
 import { CAT_ORDER, ChoreGroups, Notice, PausedNotice } from './parts';
 import type { KidData } from './useKidData';
+import { localDateStr } from '../../utils';
 import s from './kid.module.css';
 
 /** The day runs 7 am – 9 pm on the sun arc. */
@@ -27,8 +28,71 @@ interface TodayProps {
 }
 
 export function TodayScreen({ user, data, now, topBar, viewOf, tts, onToggle, onPhoto, onSpeak }: TodayProps) {
-  const { t } = useTranslation();
-  const chores = (data.chores ?? []).filter(c => c.date === data.today);
+  const { t, i18n } = useTranslation();
+  const scheduledToday = (data.chores ?? []).filter(c => c.date === data.today);
+  const completedToday = (item: HomeBacklogItem) => !!item.completed_at && (
+    item.completion_date === data.today || localDateStr(new Date(item.completed_at)) === data.today
+  );
+  // Assigned Home chores persist until completed. Keep those open rows on
+  // Today and show any Home completion from today under the same category.
+  const homeItems = new Map<number, HomeBacklogItem>();
+  data.homeBacklog.filter(completedToday).forEach(item => homeItems.set(item.chore_id, item));
+  data.assignedHome
+    .filter(item => !item.completed_at || completedToday(item))
+    .forEach(item => {
+      const existing = homeItems.get(item.chore_id);
+      // A late open-assignment response must not overwrite a completion just
+      // loaded from the shared Home backlog.
+      if (!existing || item.completed_at) homeItems.set(item.chore_id, item);
+    });
+  const homeToday = [...homeItems.values()]
+    .map(item => ({
+      schedule_id: -item.chore_id,
+      chore_id: item.chore_id,
+      title: item.title,
+      description: item.description,
+      category: 'home' as const,
+      icon: item.icon,
+      points_value: item.completed_at ? item.points_awarded ?? item.points_value : item.points_value,
+      estimated_minutes: item.estimated_minutes,
+      missed_penalty_value: 0,
+      requires_approval: false,
+      requires_photo: false,
+      assignment_type: 'family',
+      expiry_penalty: 'block' as const,
+      expiry_penalty_value: 0,
+      available: true,
+      expired: false,
+      completed: !!item.completed_at,
+      completed_at: item.completed_at ?? undefined,
+      date: data.today,
+    }));
+  const chores = [...scheduledToday, ...homeToday];
+  const todayViewOf = (chore: ScheduledChore): ChoreView => {
+    const view = viewOf(chore);
+    if (chore.schedule_id >= 0) return view;
+    const item = homeItems.get(chore.chore_id);
+    if (!chore.completed) {
+      return { ...view, cat: 'daily', state: 'todo', canToggle: true, points: chore.points_value };
+    }
+    const date = chore.completed_at ? new Date(chore.completed_at) : null;
+    const duration = chore.estimated_minutes
+      ? t('kid.chore.about', { time: formatDuration(chore.estimated_minutes, t) })
+      : '';
+    return {
+      ...view,
+      cat: 'daily',
+      state: 'done',
+      canToggle: !!item,
+      points: chore.points_value,
+      meta: [duration, t('kid.home.completedBy', {
+        name: item?.completed_by_name || t('kid.home.unknown'),
+        date: date && !Number.isNaN(date.getTime())
+          ? new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+          : '',
+      })].filter(Boolean).join(' · '),
+    };
+  };
   const firstName = user.name.split(' ')[0];
 
   // One mark per chore, in list order, so the shape row reads like the list.
@@ -82,7 +146,7 @@ export function TodayScreen({ user, data, now, topBar, viewOf, tts, onToggle, on
         ) : (
           <ChoreGroups
             chores={chores}
-            viewOf={viewOf}
+            viewOf={todayViewOf}
             togglingIds={data.togglingIds}
             tts={tts}
             onToggle={onToggle}

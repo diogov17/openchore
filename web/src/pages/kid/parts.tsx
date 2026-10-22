@@ -52,20 +52,24 @@ export interface ChoreGroupsProps {
 /** Chores under their category headers, always Must do → Every day → Bonus. */
 export function ChoreGroups({ chores, viewOf, togglingIds, tts, onToggle, onPhoto, onSpeak, headingLevel = 'h2' }: ChoreGroupsProps) {
   const { t } = useTranslation();
+  const groups: { key: string; cat: Cat; label?: string }[] = [
+    ...CAT_ORDER.map(cat => ({ key: cat, cat })),
+    { key: 'home', cat: 'daily', label: t('design.category.home') },
+  ];
   return (
     <>
-      {CAT_ORDER.map(cat => {
-        const list = chores.filter(c => catFromCategory(c.category) === cat);
+      {groups.map(({ key, cat, label }) => {
+        const list = chores.filter(c => key === 'home' ? c.category === 'home' : c.category !== 'home' && catFromCategory(c.category) === cat);
         if (!list.length) return null;
         const views = list.map(viewOf);
         const done = views.filter(v => v.state === 'done' || v.state === 'waiting').length;
         const bonusPts = list.reduce((sum, c) => sum + (c.points_value || 0), 0);
-        const count = cat === 'bonus'
+        const count = key === 'bonus'
           ? t('kid.today.bonusCount', { count: bonusPts })
           : t('design.progress.count', { done, total: list.length });
         return (
-          <section key={cat} className={s.group}>
-            <CategoryHeader cat={cat} count={count} as={headingLevel} />
+          <section key={key} className={s.group}>
+            <CategoryHeader cat={cat} label={label} count={count} as={headingLevel} />
             {list.map((c, i) => (
               <ChoreItem
                 key={`${c.schedule_id}-${c.date}`}

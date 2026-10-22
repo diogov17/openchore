@@ -351,8 +351,12 @@ func TestParentCompletesKidsChoreOnTheirBehalf(t *testing.T) {
 		t.Fatalf("expected parent to get nothing, got %d", got)
 	}
 
-	// And a parent can undo it on the kid's behalf.
+	// An undo must explicitly identify the credited person.
 	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/%d/complete", sched), nil,
+		adminHeaders(), http.StatusConflict)
+
+	// And a parent can undo it on the kid's behalf.
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/%d/complete?completed_by=%d", sched, kid), nil,
 		adminHeaders(), http.StatusNoContent)
 	if got := env.balance(t, kid); got != 0 {
 		t.Fatalf("expected kid balance back to 0, got %d", got)

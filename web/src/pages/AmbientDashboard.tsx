@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { api, fetchPublicUserData } from '../api';
-import type { User, ScheduledChore, UserStreakData, PointsData } from '../types';
+import type { User, ScheduledChore, HomeBacklogItem, UserStreakData, PointsData } from '../types';
 import { localDateStr } from '../utils';
 import {
   Avatar, ChoreRow, DayProgress, FamilyMember, HouseScope, Icon, SkinScope,
@@ -125,19 +125,44 @@ function useFitRows<T extends HTMLElement>(deps: unknown[]) {
 }
 
 async function loadPerson(user: User, today: string): Promise<PersonDay> {
-  const [chores, streakData, pointsData] = await Promise.all([
+  const [chores, homeChores, streakData, pointsData] = await Promise.all([
     fetchPublicUserData<ScheduledChore[]>(`/users/${user.id}/chores?view=daily&date=${today}`),
+    fetchPublicUserData<HomeBacklogItem[]>(`/users/${user.id}/home-chores?date=${today}`),
     fetchPublicUserData<UserStreakData>(`/users/${user.id}/streak`),
     fetchPublicUserData<PointsData>(`/users/${user.id}/points`),
   ]);
-  const done = chores.filter(isChoreDone);
+  const choresWithHome: ScheduledChore[] = [
+    ...chores,
+    ...homeChores.map((item): ScheduledChore => ({
+      schedule_id: -item.chore_id,
+      chore_id: item.chore_id,
+      title: item.title,
+      description: item.description,
+      category: 'home',
+      icon: item.icon,
+      points_value: item.completed_at ? item.points_awarded ?? item.points_value : item.points_value,
+      missed_penalty_value: 0,
+      requires_approval: false,
+      requires_photo: false,
+      assignment_type: 'family',
+      expiry_penalty: 'block',
+      expiry_penalty_value: 0,
+      available: true,
+      expired: false,
+      completed: !!item.completed_at,
+      completed_at: item.completed_at ?? undefined,
+      completed_by_name: item.completed_by_name,
+      date: today,
+    })),
+  ];
+  const done = choresWithHome.filter(isChoreDone);
   const doneAt = done
     .map((c) => (c.completed_at ? new Date(c.completed_at) : null))
     .filter((d): d is Date => !!d && !isNaN(d.getTime()))
     .sort((a, b) => a.getTime() - b.getTime());
   return {
     user,
-    chores,
+    chores: choresWithHome,
     completed: done.length,
     total: chores.length,
     pointsToday: done.reduce((sum, c) => sum + c.points_value, 0),
@@ -151,12 +176,17 @@ export const AmbientDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const [people, setPeople] = useState<PersonDay[]>([]);
+  const [unassignedHome, setUnassignedHome] = useState<HomeBacklogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const now = useMinuteClock();
 
   const fetchData = useCallback(async () => {
     try {
-      const users: User[] = await api.users.list();
+      const [users, sharedHome]: [User[], HomeBacklogItem[]] = await Promise.all([
+        api.users.list(),
+        fetchPublicUserData<HomeBacklogItem[]>('/home/unassigned'),
+      ]);
+      setUnassignedHome(sharedHome);
       const today = localDateStr(new Date());
       const results = await Promise.allSettled(users.filter((u) => !u.paused).map((u) => loadPerson(u, today)));
       setPeople(
@@ -235,6 +265,7 @@ export const AmbientDashboard: React.FC = () => {
 
           <div className={styles.doors}>
             {people.map((p) => <Door key={p.user.id} p={p} now={now} fmtTime={fmtTime} />)}
+            {unassignedHome.length > 0 && <UnassignedHomeDoor key="unassigned-home" chores={unassignedHome} />}
           </div>
 
           {people.length > 0 && (
@@ -340,6 +371,33 @@ function Door({ p, now, fmtTime }: { p: PersonDay; now: Date; fmtTime: (d: Date)
           <div ref={rowsRef} className={styles.rows}>{next.map(rowFor)}</div>
         </div>
       )}
+    </SkinScope>
+  );
+}
+
+function UnassignedHomeDoor({ chores }: { chores: HomeBacklogItem[] }) {
+  const { t } = useTranslation();
+  const rowsRef = useFitRows<HTMLDivElement>([chores.map(chore => chore.chore_id).join()]);
+  return (
+    <SkinScope skin="sunroom" door className={styles.door} role="group" aria-label={t('wall.unassignedHome')}>
+      <div className={styles.doorHead}>
+        <h2 className={styles.name}>{t('wall.unassignedHome')}</h2>
+      </div>
+      <div className={styles.next}>
+        <div ref={rowsRef} className={styles.rows}>
+          {chores.map(chore => (
+            <ChoreRow
+              key={chore.chore_id}
+              readOnly
+              cat="daily"
+              icon={chore.icon}
+              title={chore.title}
+              points={chore.points_value}
+              state="todo"
+            />
+          ))}
+        </div>
+      </div>
     </SkinScope>
   );
 }

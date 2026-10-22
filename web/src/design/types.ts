@@ -30,7 +30,7 @@ export function isPersonColor(v: unknown): v is PersonColor {
 export type Cat = 'essential' | 'daily' | 'bonus';
 export const CATS: readonly Cat[] = ['essential', 'daily', 'bonus'];
 
-/** Map a DB chore category (`required` | `core` | `bonus`) to a design category. */
+/** Map a chore category to a design mark; Home uses the daily mark. */
 export function catFromCategory(category: string | null | undefined): Cat {
   switch (category) {
     case 'required':
@@ -44,4 +44,4 @@ export function catFromCategory(category: string | null | undefined): Cat {
 }
 
 export type ChoreState = 'todo' | 'done' | 'waiting' | 'locked';
-export type TabId = 'today' | 'week' | 'rewards';
+export type TabId = 'home' | 'today' | 'week' | 'rewards';

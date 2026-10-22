@@ -165,7 +165,9 @@
         "pts": "pts",
         "scheduleTitle": "Schedule",
         "timeLabel": "Time",
-        "when": "When"
+        "when": "When",
+        "homeBacklog": "Added to the Home backlog for adults to pick up.",
+        "sharedAdults": "Shared between adults; the person who completes it earns the points"
       },
       "schedule": {
         "allUsers": "All",
@@ -175,12 +177,14 @@
         "daysLabel": "Days",
         "deductLabel": "Deduct",
         "dueBy": "Due by",
-        "helpText": "Add a schedule so this chore appears on kids' dashboards. You can skip this and add schedules later.",
+        "helpText": "Add a schedule so this chore appears on dashboards. You can skip this and add schedules later.",
         "ifMissed": "If missed",
         "intervalSuffix": "days, starting",
         "repeatEvery": "Repeat every",
         "startDate": "Start date",
-        "typeLabel": "Schedule type"
+        "typeLabel": "Schedule type",
+        "homeHelpText": "Leave everyone unselected to add this to the Home backlog. You can also schedule it for someone.",
+        "shared": "Shared between adults — the person who completes it earns the points"
       },
       "scheduleType": {
         "interval": "Every N days",
@@ -207,7 +211,8 @@
       "tabPoints": "Points",
       "tabRewards": "Rewards",
       "tabSettings": "Settings",
-      "title": "Manage"
+      "title": "Manage",
+      "tabHome": "Home"
     },
     "editChore": {
       "labelCategory": "Category",
@@ -342,7 +347,9 @@
       "subtitle": "Everyone's day at a glance, {{date}}",
       "tapHint": "Tap a person to see today's chores. Tap a chore's circle to mark it done on their behalf.",
       "toggleError": "Couldn't update \"{{title}}\": {{error}}",
-      "waitingHeading": "Waiting for you"
+      "waitingHeading": "Waiting for you",
+      "homeChoresCount_one": "{{count}} Home chore",
+      "homeChoresCount_other": "{{count}} Home chores"
     },
     "modal": {
       "close": "Close"
@@ -467,7 +474,10 @@
       "scheduleTypeTitle": "How often this chore repeats: weekly on specific days, every N days, or a single date.",
       "suffixDays": "days",
       "title": "Schedules",
-      "userFallback": "User {{id}}"
+      "userFallback": "User {{id}}",
+      "btnEdit": "Edit",
+      "btnSave": "Save schedule",
+      "btnSaving": "Saving..."
     },
     "settingsTab": {
       "ai": {
@@ -761,6 +771,28 @@
       "unpauseAriaLabel": "Unpause user",
       "unpauseTitle": "Unpause (resume chores)",
       "updateBtn": "Update"
+    },
+    "homeBacklog": {
+      "assignError": "Could not assign this Home chore.",
+      "assignLabel": "Assign {{chore}}",
+      "assignedTo": "Assigned to {{name}}",
+      "complete": "Done",
+      "completeError": "Could not complete this chore. It may already be completed or scheduled.",
+      "completedBy": "Completed by {{name}} on {{date}}",
+      "completing": "Saving...",
+      "edit": "Edit",
+      "empty": "Your Home backlog is clear.",
+      "heading": "Home",
+      "historyHeading": "Completed",
+      "loadError": "Could not load the Home backlog.",
+      "openHeading": "To do ({{count}})",
+      "repeat": "Add again",
+      "repeatError": "Could not add this chore again.",
+      "subtitle": "Unscheduled household chores to pick up or assign. The person who completes one earns its points.",
+      "unassigned": "Unassigned",
+      "uncheck": "Undo",
+      "uncheckError": "Could not undo this completion.",
+      "unknown": "Unknown"
     }
   },
   "common": {
@@ -823,7 +855,8 @@
     "category": {
       "essential": "Must do",
       "daily": "Every day",
-      "bonus": "Bonus"
+      "bonus": "Bonus",
+      "home": "Home"
     },
     "celebration": {
       "back": "Back to my list",
@@ -873,7 +906,8 @@
       "label": "Main",
       "rewards": "Rewards",
       "today": "Today",
-      "week": "Week"
+      "week": "Week",
+      "home": "Home"
     }
   },
   "entry": {
@@ -1150,6 +1184,20 @@
       "streakDays_one": "{{count}} day in a row",
       "streakDays_other": "{{count}} days in a row",
       "title": "This week"
+    },
+    "home": {
+      "assignError": "Could not assign this Home chore.",
+      "assignLabel": "Assign {{chore}}",
+      "assignedTo": "Assigned to {{name}}",
+      "complete": "Done",
+      "completedBy": "Completed by {{name}} on {{date}}",
+      "empty": "Your Home backlog is clear.",
+      "historyHeading": "Completed",
+      "openHeading": "To do ({{count}})",
+      "subtitle": "Pick a household chore whenever you have time, {{name}}.",
+      "unassigned": "Unassigned",
+      "uncheck": "Undo",
+      "unknown": "Unknown"
     }
   },
   "linkedAccounts": {
@@ -1293,6 +1341,7 @@
     "familyToday": "The family today",
     "chartTitle": "Today so far",
     "chartDesc": "How much of their day each person has done, hour by hour. Now: {{summary}}.",
-    "chartPerson": "{{name}} {{pct}}%"
+    "chartPerson": "{{name}} {{pct}}%",
+    "unassignedHome": "Home · Unassigned"
   }
 }

@@ -11,18 +11,21 @@ import { TriggerManager } from './TriggerManager';
 import { CHORE_CATEGORIES, IconWell } from './pickers';
 import ui from './ui.module.css';
 
-export const ChoresTab: React.FC = () => {
+export const ChoresTab: React.FC<{ children?: React.ReactNode; onDataChanged?: () => void }> = ({ children, onDataChanged }) => {
   const { t } = useTranslation();
   const [chores, setChores] = useState<Chore[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [backlogIDs, setBacklogIDs] = useState<Set<number>>(new Set());
   const [editingChore, setEditingChore] = useState<Chore | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const load = useCallback(async () => {
-    const [c, u] = await Promise.all([api.chores.list(), api.users.list()]);
+    const [c, u, homeBacklog] = await Promise.all([api.chores.list(), api.users.list(), api.chores.listHomeBacklog()]);
     setChores(c);
     setUsers(u);
-  }, []);
+    setBacklogIDs(new Set(homeBacklog.map(item => item.chore_id)));
+    onDataChanged?.();
+  }, [onDataChanged]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -67,7 +70,7 @@ export const ChoresTab: React.FC = () => {
         users={users}
       />
 
-      {chores.length === 0 && (
+      {chores.length === 0 && backlogIDs.size === 0 && (
         <div className={ui.empty}>
           <Icon name="broom" />
           <p>{t('admin.choresTab.empty')}</p>
@@ -75,12 +78,15 @@ export const ChoresTab: React.FC = () => {
       )}
 
       {CHORE_CATEGORIES.map(category => {
-        const items = chores.filter(c => c.category === category);
-        if (items.length === 0) return null;
+        const items = chores.filter(c => c.category === category && (category !== 'home' || !backlogIDs.has(c.id)));
+        const hasBacklog = category === 'home' && backlogIDs.size > 0;
+        const hasHomeContent = category === 'home' && !!children;
+        if (items.length === 0 && !hasBacklog && !hasHomeContent) return null;
         const cat = catFromCategory(category);
         return (
           <section key={category} className={ui.section}>
-            <CategoryHeader cat={cat} as="h3" count={items.length} className={ui.catHead} />
+            <CategoryHeader cat={cat} label={category === 'home' ? t('design.category.home') : undefined} as="h3" count={category === 'home' ? items.length + backlogIDs.size : items.length} className={ui.catHead} />
+            {category === 'home' && children}
             <div className={ui.list}>
               {items.map(chore => (
                 <div key={chore.id} className={ui.row}>

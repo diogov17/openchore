@@ -165,7 +165,9 @@
         "pts": "Pkt.",
         "scheduleTitle": "Zeitplan",
         "timeLabel": "Zeit",
-        "when": "Wann"
+        "when": "Wann",
+        "homeBacklog": "Zum Haushaltsrückstand hinzugefügt, damit Erwachsene die Aufgabe übernehmen können.",
+        "sharedAdults": "Gemeinsam von Erwachsenen; wer die Aufgabe erledigt, erhÃ¤lt die Punkte"
       },
       "schedule": {
         "allUsers": "Alle",
@@ -175,12 +177,14 @@
         "daysLabel": "Tage",
         "deductLabel": "Abziehen",
         "dueBy": "Fällig bis",
-        "helpText": "Füge einen Zeitplan hinzu, damit diese Aufgabe auf den Dashboards der Kinder erscheint. Du kannst das überspringen und später Zeitpläne hinzufügen.",
+        "helpText": "Füge einen Zeitplan hinzu, damit diese Aufgabe auf den Dashboards erscheint. Du kannst das überspringen und später Zeitpläne hinzufügen.",
         "ifMissed": "Wenn verpasst",
         "intervalSuffix": "Tage, beginnend am",
         "repeatEvery": "Wiederholen alle",
         "startDate": "Startdatum",
-        "typeLabel": "Zeitplantyp"
+        "typeLabel": "Zeitplantyp",
+        "homeHelpText": "Lass alle Personen unmarkiert, um die Aufgabe zum Haushaltsrückstand hinzuzufügen. Du kannst sie auch jemandem zuweisen.",
+        "shared": "Gemeinsam von Erwachsenen â€” wer die Aufgabe erledigt, erhÃ¤lt die Punkte"
       },
       "scheduleType": {
         "interval": "Alle X Tage",
@@ -207,7 +211,8 @@
       "tabPoints": "Punkte",
       "tabRewards": "Belohnungen",
       "tabSettings": "Einstellungen",
-      "title": "Verwalten"
+      "title": "Verwalten",
+      "tabHome": "Haushalt"
     },
     "editChore": {
       "labelCategory": "Kategorie",
@@ -342,7 +347,9 @@
       "subtitle": "Der Tag aller auf einen Blick, {{date}}",
       "tapHint": "Tippe auf eine Person, um die heutigen Aufgaben zu sehen. Tippe auf den Kreis einer Aufgabe, um sie für sie zu erledigen.",
       "toggleError": "„{{title}}“ konnte nicht aktualisiert werden: {{error}}",
-      "waitingHeading": "Wartet auf dich"
+      "waitingHeading": "Wartet auf dich",
+      "homeChoresCount_one": "{{count}} Haushaltsaufgabe",
+      "homeChoresCount_other": "{{count}} Haushaltsaufgaben"
     },
     "modal": {
       "close": "Schließen"
@@ -467,7 +474,10 @@
       "scheduleTypeTitle": "Wie oft sich diese Aufgabe wiederholt: wöchentlich an bestimmten Tagen, alle N Tage oder an einem einzelnen Datum.",
       "suffixDays": "Tage",
       "title": "Zeitpläne",
-      "userFallback": "Benutzer {{id}}"
+      "userFallback": "Benutzer {{id}}",
+      "btnEdit": "Bearbeiten",
+      "btnSave": "Zeitplan speichern",
+      "btnSaving": "Wird gespeichert..."
     },
     "settingsTab": {
       "ai": {
@@ -761,6 +771,28 @@
       "unpauseAriaLabel": "Benutzer fortsetzen",
       "unpauseTitle": "Fortsetzen (Aufgaben wieder aufnehmen)",
       "updateBtn": "Aktualisieren"
+    },
+    "homeBacklog": {
+      "assignError": "Diese Haushaltsaufgabe konnte nicht zugewiesen werden.",
+      "assignLabel": "{{chore}} zuweisen",
+      "assignedTo": "Zugewiesen an {{name}}",
+      "complete": "Erledigt",
+      "completeError": "Die Aufgabe konnte nicht abgeschlossen werden. Sie ist möglicherweise bereits erledigt oder geplant.",
+      "completedBy": "Erledigt von {{name}} am {{date}}",
+      "completing": "Wird gespeichert...",
+      "edit": "Bearbeiten",
+      "empty": "Im Haushaltsrückstand ist nichts offen.",
+      "heading": "Haushalt",
+      "historyHeading": "Erledigt",
+      "loadError": "Der Haushaltsrückstand konnte nicht geladen werden.",
+      "openHeading": "Offen ({{count}})",
+      "repeat": "Erneut hinzufuegen",
+      "repeatError": "Diese Aufgabe konnte nicht erneut hinzugefuegt werden.",
+      "subtitle": "Ungeplante Haushaltsaufgaben zum Übernehmen oder Zuweisen. Wer eine erledigt, erhält die Punkte.",
+      "unassigned": "Nicht zugewiesen",
+      "uncheck": "Rückgängig",
+      "uncheckError": "Der Abschluss konnte nicht rückgängig gemacht werden.",
+      "unknown": "Unbekannt"
     }
   },
   "common": {
@@ -823,7 +855,8 @@
     "category": {
       "essential": "Pflicht",
       "daily": "Jeden Tag",
-      "bonus": "Bonus"
+      "bonus": "Bonus",
+      "home": "Haushalt"
     },
     "celebration": {
       "back": "Zurück zu meiner Liste",
@@ -873,7 +906,8 @@
       "label": "Hauptmenü",
       "rewards": "Belohnungen",
       "today": "Heute",
-      "week": "Woche"
+      "week": "Woche",
+      "home": "Haushalt"
     }
   },
   "entry": {
@@ -1150,6 +1184,22 @@
       "streakDays_one": "{{count}} Tag in Folge",
       "streakDays_other": "{{count}} Tage in Folge",
       "title": "Diese Woche"
+    },
+    "home": {
+      "assignError": "Diese Haushaltsaufgabe konnte nicht zugewiesen werden.",
+      "assignLabel": "{{chore}} zuweisen",
+      "assignedTo": "Zugewiesen an {{name}}",
+      "complete": "Erledigt",
+      "completedBy": "Erledigt von {{name}} am {{date}}",
+      "empty": "Im Haushaltsrückstand ist nichts offen.",
+      "historyHeading": "Erledigt",
+      "openHeading": "Offen ({{count}})",
+      "repeat": "Erneut hinzufuegen",
+      "repeatError": "Diese Aufgabe konnte nicht erneut hinzugefuegt werden.",
+      "subtitle": "Übernimm eine Haushaltsaufgabe, wenn du Zeit hast, {{name}}.",
+      "unassigned": "Nicht zugewiesen",
+      "uncheck": "Rückgängig",
+      "unknown": "Unbekannt"
     }
   },
   "linkedAccounts": {
@@ -1293,6 +1343,7 @@
     "familyToday": "Die Familie heute",
     "chartTitle": "Heute bisher",
     "chartDesc": "Wie viel jede Person von ihrem Tag geschafft hat, Stunde für Stunde. Jetzt: {{summary}}.",
-    "chartPerson": "{{name}} {{pct}} %"
+    "chartPerson": "{{name}} {{pct}} %",
+    "unassignedHome": "Haushalt · Nicht zugewiesen"
   }
 }

@@ -1,10 +1,13 @@
 package api
 
 import (
-	"errors"
 	"context"
+	"database/sql"
+	"errors"
+	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -55,6 +58,267 @@ func (h *ChoreHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, chores)
 }
 
+// ListHomeBacklog returns unscheduled Home chores and their completion history.
+func (h *ChoreHandler) ListHomeBacklog(w http.ResponseWriter, r *http.Request) {
+	items, err := h.store.ListHomeBacklog(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list Home backlog")
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (h *ChoreHandler) ListHomeBacklogHistory(w http.ResponseWriter, r *http.Request) {
+	items, err := h.store.ListHomeBacklogHistory(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list Home backlog history")
+		return
+	}
+	if items == nil {
+		items = []store.HomeBacklogItem{}
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (h *ChoreHandler) RepeatHomeBacklog(w http.ResponseWriter, r *http.Request) {
+	choreID, err := urlParamInt64(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid chore id")
+		return
+	}
+	if err := h.store.RepeatHomeBacklogChore(r.Context(), choreID); err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "completed Home chore not found")
+			return
+		}
+		writeError(w, http.StatusConflict, "could not add Home chore again")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ListMyAssignedHomeChores returns persistent Home assignments for the signed-in profile.
+func (h *ChoreHandler) ListMyAssignedHomeChores(w http.ResponseWriter, r *http.Request) {
+	user := UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	date := r.URL.Query().Get("date")
+	if date == "" {
+		date = time.Now().Format(model.DateFormat)
+	}
+	if _, err := time.Parse(model.DateFormat, date); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid date")
+		return
+	}
+	items, err := h.store.ListAssignedHomeChores(r.Context(), user.ID, date)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list assigned Home chores")
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (h *ChoreHandler) AssignHomeBacklog(w http.ResponseWriter, r *http.Request) {
+	choreID, err := urlParamInt64(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid chore id")
+		return
+	}
+	var req struct {
+		UserID int64 `json:"user_id"`
+		All    bool  `json:"all"`
+	}
+	if err := decodeJSON(r, &req); err != nil || req.All || req.UserID <= 0 {
+		writeError(w, http.StatusBadRequest, "a valid user_id is required")
+		return
+	}
+	if !req.All {
+		user, err := h.store.GetUser(r.Context(), req.UserID)
+		if err != nil || user == nil {
+			writeError(w, http.StatusNotFound, "user not found")
+			return
+		}
+	}
+	if err := h.store.AssignHomeBacklogChore(r.Context(), choreID, req.UserID, req.All); err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusConflict, "only open unscheduled Home chores can be assigned")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "could not assign Home chore")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *ChoreHandler) UnassignHomeBacklog(w http.ResponseWriter, r *http.Request) {
+	choreID, err := urlParamInt64(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid chore id")
+		return
+	}
+	if err := h.store.UnassignHomeBacklogChore(r.Context(), choreID); err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "Home chore is not assigned")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "could not unassign Home chore")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// CompleteAssignedHomeBacklog records a completion from a person's Today list.
+func (h *ChoreHandler) CompleteAssignedHomeBacklog(w http.ResponseWriter, r *http.Request) {
+	choreID, err := urlParamInt64(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid chore id")
+		return
+	}
+	user := UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	var req struct {
+		CompletionDate string `json:"completion_date"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if _, err := time.Parse(model.DateFormat, req.CompletionDate); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid completion date")
+		return
+	}
+	if err := h.store.CompleteAssignedHomeBacklogChore(r.Context(), choreID, user.ID, req.CompletionDate); err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "assigned Home chore not found")
+			return
+		}
+		writeError(w, http.StatusConflict, "could not complete assigned Home chore")
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"chore_id": choreID, "completed_by": user.ID})
+}
+
+func (h *ChoreHandler) UncompleteAssignedHomeBacklog(w http.ResponseWriter, r *http.Request) {
+	choreID, err := urlParamInt64(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid chore id")
+		return
+	}
+	user := UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	if err := h.store.UncompleteAssignedHomeBacklogChore(r.Context(), choreID, user.ID); err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "assigned Home completion not found")
+			return
+		}
+		writeError(w, http.StatusConflict, "could not undo assigned Home completion")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// CompleteHomeBacklog records completion by the signed-in adult and credits
+// points directly to that profile.
+func (h *ChoreHandler) CompleteHomeBacklog(w http.ResponseWriter, r *http.Request) {
+	choreID, err := urlParamInt64(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid chore id")
+		return
+	}
+	user := UserFromContext(r.Context())
+	if user == nil || user.Role != model.RoleAdmin {
+		writeError(w, http.StatusForbidden, "Home backlog is for adult profiles")
+		return
+	}
+	var req struct {
+		CompletionDate string `json:"completion_date"`
+		CompletedBy    int64  `json:"completed_by"`
+	}
+	if err := decodeJSON(r, &req); err != nil && err != io.EOF {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	completionDate := req.CompletionDate
+	if completionDate == "" {
+		completionDate = time.Now().Format(model.DateFormat)
+	}
+	if _, err := time.Parse(model.DateFormat, completionDate); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid completion date")
+		return
+	}
+	completedBy := req.CompletedBy
+	if completedBy == 0 {
+		completedBy = user.ID
+	} else {
+		target, err := h.store.GetUser(r.Context(), completedBy)
+		if err != nil || target == nil || target.Role != model.RoleAdmin {
+			writeError(w, http.StatusBadRequest, "completed_by must be an adult profile")
+			return
+		}
+	}
+	if err := h.store.CompleteHomeBacklogChore(r.Context(), choreID, completedBy, completionDate); err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "unscheduled Home chore not found")
+			return
+		}
+		writeError(w, http.StatusConflict, "could not complete Home chore; it may already be completed or scheduled")
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"chore_id": choreID, "completed_by": completedBy})
+}
+
+func (h *ChoreHandler) UncompleteHomeBacklog(w http.ResponseWriter, r *http.Request) {
+	choreID, err := urlParamInt64(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid chore id")
+		return
+	}
+	completedBy, err := strconv.ParseInt(r.URL.Query().Get("completed_by"), 10, 64)
+	if err != nil || completedBy <= 0 {
+		writeError(w, http.StatusBadRequest, "completed_by is required")
+		return
+	}
+	if err := h.store.UncompleteHomeBacklogChore(r.Context(), choreID, completedBy); err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "completed Home chore not found")
+			return
+		}
+		writeError(w, http.StatusConflict, "could not uncheck Home chore")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *ChoreHandler) UncompleteHomeBacklogCompletion(w http.ResponseWriter, r *http.Request) {
+	completionID, err := urlParamInt64(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid completion id")
+		return
+	}
+	completedBy, err := strconv.ParseInt(r.URL.Query().Get("completed_by"), 10, 64)
+	if err != nil || completedBy <= 0 {
+		writeError(w, http.StatusBadRequest, "completed_by is required")
+		return
+	}
+	if err := h.store.UncompleteHomeBacklogCompletion(r.Context(), completionID, completedBy); err != nil {
+		if err == sql.ErrNoRows {
+			writeError(w, http.StatusNotFound, "Home completion not found")
+			return
+		}
+		writeError(w, http.StatusConflict, "could not undo Home completion")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *ChoreHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := urlParamInt64(r, "id")
 	if err != nil {
@@ -102,8 +366,8 @@ func (h *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.Category == "" {
 		req.Category = model.CategoryCore
 	}
-	if req.Category != model.CategoryRequired && req.Category != model.CategoryCore && req.Category != model.CategoryBonus {
-		writeError(w, http.StatusBadRequest, "category must be required, core, or bonus")
+	if req.Category != model.CategoryRequired && req.Category != model.CategoryCore && req.Category != model.CategoryBonus && req.Category != model.CategoryHome {
+		writeError(w, http.StatusBadRequest, "category must be required, core, bonus, or home")
 		return
 	}
 
@@ -172,8 +436,8 @@ func (h *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		existing.Description = req.Description
 	}
 	if req.Category != "" {
-		if req.Category != model.CategoryRequired && req.Category != model.CategoryCore && req.Category != model.CategoryBonus {
-			writeError(w, http.StatusBadRequest, "category must be required, core, or bonus")
+		if req.Category != model.CategoryRequired && req.Category != model.CategoryCore && req.Category != model.CategoryBonus && req.Category != model.CategoryHome {
+			writeError(w, http.StatusBadRequest, "category must be required, core, bonus, or home")
 			return
 		}
 		existing.Category = req.Category
@@ -263,7 +527,17 @@ func (h *ChoreHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.AssignedTo == 0 {
+	if req.AssignmentType == model.AssignmentFamily {
+		// Shared household chores are anchored to their creator for legacy
+		// schema compatibility, but shown to every adult and credited to the
+		// adult who completes them.
+		caller := UserFromContext(r.Context())
+		if caller == nil || caller.Role != model.RoleAdmin {
+			writeError(w, http.StatusBadRequest, "shared chores require an adult profile")
+			return
+		}
+		req.AssignedTo = caller.ID
+	} else if req.AssignedTo == 0 {
 		writeError(w, http.StatusBadRequest, "assigned_to is required")
 		return
 	}
@@ -320,6 +594,10 @@ func (h *ChoreHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusCreated, schedule)
 }
+
+
+
+
 
 func (h *ChoreHandler) ListSchedules(w http.ResponseWriter, r *http.Request) {
 	choreID, err := urlParamInt64(r, "id")
@@ -392,9 +670,20 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 
 	// Only the assignee (or a parent acting on their behalf) may complete.
 	caller := UserFromContext(r.Context())
+	if caller == nil {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
 	if !canActOnSchedule(caller, schedule) {
 		writeError(w, http.StatusForbidden, "this chore is assigned to someone else")
 		return
+	}
+	if schedule.AssignmentType == model.AssignmentFamily && req.CompletedBy != 0 && caller.Role == model.RoleAdmin {
+		target, err := h.store.GetUser(r.Context(), req.CompletedBy)
+		if err != nil || target == nil || target.Role != model.RoleAdmin {
+			writeError(w, http.StatusBadRequest, "shared chores can only be credited to an adult profile")
+			return
+		}
 	}
 	completedBy, err := completerFor(caller, schedule, req.CompletedBy)
 	if err != nil {
@@ -586,14 +875,14 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 		pts, _ = h.store.GetChorePointsForSchedule(r.Context(), scheduleID)
 
 		// Core chore points only count once required chores are complete
-		if chore != nil && chore.Category == model.CategoryCore {
+		if schedule.AssignmentType != model.AssignmentFamily && chore != nil && chore.Category == model.CategoryCore {
 			if !h.shouldAwardCorePoints(r.Context(), completedBy, req.CompletionDate) {
 				pts = 0
 			}
 		}
 
 		// Bonus chore points only count once required + core chores are complete
-		if chore != nil && chore.Category == model.CategoryBonus {
+		if schedule.AssignmentType != model.AssignmentFamily && chore != nil && chore.Category == model.CategoryBonus {
 			if !h.shouldAwardBonusPoints(r.Context(), completedBy, req.CompletionDate) {
 				pts = 0
 			}
@@ -621,14 +910,14 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 
 	if status == model.StatusApproved {
 		// Completing a required chore can be the event that opens the core gate.
-		if chore != nil && chore.Category == model.CategoryRequired {
+		if schedule.AssignmentType != model.AssignmentFamily && chore != nil && chore.Category == model.CategoryRequired {
 			h.creditPendingCorePoints(r.Context(), completedBy, req.CompletionDate)
 		}
 
 		// Completing a required/core chore can be the event that opens the
 		// bonus gate. Retroactively credit any approved bonus completions for
 		// this user/date that were originally capped at 0.
-		if chore != nil && (chore.Category == model.CategoryRequired || chore.Category == model.CategoryCore) {
+		if schedule.AssignmentType != model.AssignmentFamily && chore != nil && (chore.Category == model.CategoryRequired || chore.Category == model.CategoryCore) {
 			h.creditPendingBonusPoints(r.Context(), completedBy, req.CompletionDate)
 		}
 
@@ -713,7 +1002,7 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 			if err == nil {
 				allDone := len(todayChores) > 0
 				for _, c := range todayChores {
-					if !c.Completed && c.Category != model.CategoryBonus {
+					if !c.Completed && c.Category != model.CategoryBonus && c.Category != model.CategoryHome {
 						allDone = false
 						break
 					}
@@ -745,7 +1034,12 @@ func (h *ChoreHandler) Uncomplete(w http.ResponseWriter, r *http.Request) {
 
 	// Get the schedule to check for FCFS
 	schedule, _ := h.store.GetSchedule(r.Context(), scheduleID)
-	if schedule != nil && !canActOnSchedule(UserFromContext(r.Context()), schedule) {
+	caller := UserFromContext(r.Context())
+	if caller == nil {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	if schedule != nil && !canActOnSchedule(caller, schedule) {
 		writeError(w, http.StatusForbidden, "this chore is assigned to someone else")
 		return
 	}
@@ -771,6 +1065,18 @@ func (h *ChoreHandler) Uncomplete(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			netPoints = net
 		}
+	}
+	requestedBy := caller.ID
+	if raw := r.URL.Query().Get("completed_by"); raw != "" {
+		requestedBy, err = strconv.ParseInt(raw, 10, 64)
+		if err != nil || requestedBy <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid completed_by")
+			return
+		}
+	}
+	if existing != nil && requestedBy != completedBy {
+		writeError(w, http.StatusConflict, "only the credited user can undo this completion")
+		return
 	}
 
 	// FCFS: uncomplete all siblings in the group
@@ -875,11 +1181,11 @@ func (h *ChoreHandler) approveCompletion(ctx context.Context, completion *model.
 
 		// Core points only count once required chores are done; bonus
 		// points once required and core are done.
-		if chore != nil && chore.Category == model.CategoryCore &&
+		if schedule.AssignmentType != model.AssignmentFamily && chore != nil && chore.Category == model.CategoryCore &&
 			!h.shouldAwardCorePoints(ctx, completion.CompletedBy, completion.CompletionDate) {
 			pts = 0
 		}
-		if chore != nil && chore.Category == model.CategoryBonus &&
+		if schedule.AssignmentType != model.AssignmentFamily && chore != nil && chore.Category == model.CategoryBonus &&
 			!h.shouldAwardBonusPoints(ctx, completion.CompletedBy, completion.CompletionDate) {
 			pts = 0
 		}
@@ -891,10 +1197,10 @@ func (h *ChoreHandler) approveCompletion(ctx context.Context, completion *model.
 
 	// Approving a required completion can open the core gate, and a
 	// required/core one the bonus gate: credit anything capped at 0.
-	if chore != nil && chore.Category == model.CategoryRequired {
+	if schedule != nil && schedule.AssignmentType != model.AssignmentFamily && chore != nil && chore.Category == model.CategoryRequired {
 		h.creditPendingCorePoints(ctx, completion.CompletedBy, completion.CompletionDate)
 	}
-	if chore != nil && (chore.Category == model.CategoryRequired || chore.Category == model.CategoryCore) {
+	if schedule != nil && schedule.AssignmentType != model.AssignmentFamily && chore != nil && (chore.Category == model.CategoryRequired || chore.Category == model.CategoryCore) {
 		h.creditPendingBonusPoints(ctx, completion.CompletedBy, completion.CompletionDate)
 	}
 
@@ -1173,12 +1479,19 @@ func (h *ChoreHandler) Excuse(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, completion)
 }
 
-
-
 // completerFor decides whose completion this is (and so who is credited).
 // It defaults to the schedule's assignee, so a parent ticking a kid's chore
 // credits the kid. Only admins may name someone else explicitly.
 func completerFor(caller *model.User, schedule *model.ChoreSchedule, requested int64) (int64, error) {
+	if schedule.AssignmentType == model.AssignmentFamily {
+		if requested == 0 || requested == caller.ID {
+			return caller.ID, nil
+		}
+		if caller.Role == model.RoleAdmin {
+			return requested, nil
+		}
+		return 0, errors.New("shared chores can only be credited to yourself")
+	}
 	if requested == 0 || requested == schedule.AssignedTo {
 		return schedule.AssignedTo, nil
 	}

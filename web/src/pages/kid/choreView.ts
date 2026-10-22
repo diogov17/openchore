@@ -97,7 +97,7 @@ export function choreView(c: ScheduledChore, ctx: ChoreViewContext): ChoreView {
       case 'excused':
         return { ...base, state: 'done', meta: t('kid.chore.excused') };
       default:
-        if (isToday && c.category === 'core' && !ctx.requiredDone) {
+        if (isToday && c.assignment_type !== 'family' && c.category === 'core' && !ctx.requiredDone) {
           return { ...base, state: 'done', meta: t('kid.chore.pointsPending', { count: c.points_value }) };
         }
         return { ...base, state: 'done', meta: doneAtLine };

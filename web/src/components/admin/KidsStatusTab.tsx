@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { RefreshCw, Loader2 } from 'lucide-react';
 import { api } from '../../api';
-import type { User, ScheduledChore, UserStreakData, PointBalance, PendingCompletion } from '../../types';
+import type { User, ScheduledChore, UserStreakData, PointBalance, PendingCompletion, HomeBacklogItem } from '../../types';
 import { Avatar, CategoryHeader, CategoryMark, Icon, catFromCategory } from '../../design';
 import { localDateStr } from '../../utils';
 import { ApprovalList } from './ApprovalList';
@@ -14,6 +14,7 @@ import styles from './KidsStatusTab.module.css';
 interface KidStatus {
   user: User;
   chores: ScheduledChore[];
+  homeChores: HomeBacklogItem[];
   balance: number;
   streak: number;
   pendingApprovals: number;
@@ -49,11 +50,11 @@ function breakdownFor(chores: ScheduledChore[]): Breakdown {
     } else if (c.category === 'core') {
       coreTotal += 1;
       if (c.completed) coreCompleted += 1;
-    } else {
+    } else if (c.category === 'bonus') {
       bonusTotal += 1;
       if (c.completed) bonusCompleted += 1;
     }
-    if (!c.completed && c.expired && c.category !== 'bonus') overdue += 1;
+    if (!c.completed && c.expired && c.category !== 'bonus' && c.category !== 'home') overdue += 1;
     if (c.completion_status === 'pending') pendingOnToday += 1;
   }
   return {
@@ -84,10 +85,11 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
     setRefreshing(true);
     setError(null);
     try {
-      const [users, balances, pendingList] = await Promise.all([
+      const [users, balances, pendingList, homeBacklog] = await Promise.all([
         api.users.list(),
         api.points.getAllBalances().catch(() => [] as PointBalance[]),
         api.chores.listPending().catch(() => [] as PendingCompletion[]),
+        api.chores.listHomeBacklog().catch(() => [] as HomeBacklogItem[]),
       ]);
       setAllUsers(users);
       setPending(pendingList);
@@ -109,6 +111,16 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
 
       const results = await Promise.all(
         children.map(async (kid): Promise<KidStatus> => {
+          const homeChores = homeBacklog.filter(item => {
+            const assigned = item.assigned_to === kid.id || (item.assigned_to_all && kid.role === 'admin');
+            const completedToday = !!item.completed_at && (
+              item.completion_date === today || localDateStr(new Date(item.completed_at)) === today
+            );
+            // A shared chore is shown on every adult's card while open, but
+            // once completed it belongs only to the adult who earned it.
+            const completedByThisUser = !item.completed_at || item.completed_by === kid.id;
+            return assigned && completedByThisUser && (!item.completed_at || completedToday);
+          });
           try {
             const [chores, streakData] = await Promise.all([
               api.users.getChores(kid.id, 'daily', today),
@@ -119,9 +131,12 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
               })),
             ]);
             const bal = balances.find(b => b.user_id === kid.id)?.balance ?? 0;
+            const visibleChores = chores.filter(chore => chore.assignment_type !== 'family'
+              || !chore.completed || !chore.completed_by || chore.completed_by === kid.id);
             return {
               user: kid,
-              chores,
+              chores: visibleChores,
+              homeChores,
               balance: bal,
               streak: streakData.current_streak,
               pendingApprovals: pendingByAssignee.get(kid.id) || 0,
@@ -132,6 +147,7 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
             return {
               user: kid,
               chores: [],
+              homeChores,
               balance: balances.find(b => b.user_id === kid.id)?.balance ?? 0,
               streak: 0,
               pendingApprovals: pendingByAssignee.get(kid.id) || 0,
@@ -141,7 +157,7 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
         }),
       );
 
-      setKids(results.filter(k => k.user.role === 'child' || k.chores.length > 0));
+      setKids(results.filter(k => k.user.role === 'child' || k.chores.length > 0 || k.homeChores.length > 0));
     } catch {
       setError(t('admin.kidsStatusTab.loadError'));
     } finally {
@@ -178,9 +194,32 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
     setActionError(null);
     try {
       if (chore.completed) {
-        await api.chores.uncomplete(chore.schedule_id, chore.date);
+        await api.chores.uncomplete(chore.schedule_id, chore.date, kid.user.id);
       } else {
-        await api.chores.complete(chore.schedule_id, chore.date);
+        await api.chores.complete(chore.schedule_id, chore.date, undefined, { completedBy: kid.user.id });
+      }
+      await load();
+    } catch (err) {
+      setActionError(t('admin.kidsStatusTab.toggleError', {
+        title: chore.title,
+        error: err instanceof Error ? err.message : String(err),
+      }));
+    } finally {
+      setToggling(null);
+    }
+  };
+
+  const handleHomeToggle = async (e: React.MouseEvent, chore: HomeBacklogItem, userId: number) => {
+    e.stopPropagation();
+    const key = `home-${chore.chore_id}`;
+    if (toggling) return;
+    setToggling(key);
+    setActionError(null);
+    try {
+      if (chore.completed_at) {
+        await api.chores.uncompleteHomeBacklog(chore.chore_id, chore.completed_by ?? userId);
+      } else {
+        await api.chores.completeHomeBacklog(chore.chore_id, today, userId);
       }
       await load();
     } catch (err) {
@@ -259,13 +298,17 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
           const bonusUnlocked = allRequiredAndCoreDone && b.bonusTotal > 0;
           const hasAlert = b.overdue > 0;
           const isExpanded = expanded.has(kid.user.id);
-          const totalChores = gatedTotal + b.bonusTotal;
+          const scheduledHome = kid.chores.filter(c => c.category === 'home');
+          const homeTotal = scheduledHome.length + kid.homeChores.length;
+          const homeDone = scheduledHome.filter(c => c.completed).length + kid.homeChores.filter(c => !!c.completed_at).length;
+          const totalChores = gatedTotal + b.bonusTotal + homeTotal;
           const detailsId = `kid-${kid.user.id}-details`;
           const color = personColor(kid.user);
-          const counts: { cat: 'required' | 'core' | 'bonus'; done: number; total: number }[] = [
+          const counts: { cat: 'required' | 'core' | 'bonus' | 'home'; done: number; total: number }[] = [
             { cat: 'required', done: b.requiredCompleted, total: b.requiredTotal },
             { cat: 'core', done: b.coreCompleted, total: b.coreTotal },
             { cat: 'bonus', done: b.bonusCompleted, total: b.bonusTotal },
+            { cat: 'home', done: homeDone, total: homeTotal },
           ];
 
           return (
@@ -311,7 +354,9 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
                         {gatedTotal > 0 && <i style={{ width: `${gatedPct}%` }} />}
                       </span>
                       <span className={styles.progressCount}>
-                        {t('admin.kidsStatusTab.progress', { done: gatedCompleted, total: gatedTotal })}
+                        {gatedTotal + b.bonusTotal > 0
+                          ? t('admin.kidsStatusTab.progress', { done: gatedCompleted, total: gatedTotal })
+                          : t('admin.kidsStatusTab.homeChoresCount', { count: homeTotal })}
                       </span>
                     </span>
                     <span className={styles.cats}>
@@ -352,20 +397,21 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
                   {kid.loadError && (
                     <p className={ui.msgError}>{t('admin.kidsStatusTab.childLoadError')}</p>
                   )}
-                  {!kid.loadError && kid.chores.length === 0 && (
+                  {!kid.loadError && kid.chores.length === 0 && kid.homeChores.length === 0 && (
                     <p className={ui.emptyInline}>{t('admin.kidsStatusTab.noChoresScheduledDetail')}</p>
                   )}
-                  {!kid.loadError && (['required', 'core', 'bonus'] as const).map(category => {
+                  {!kid.loadError && (['required', 'core', 'bonus', 'home'] as const).map(category => {
                     const items = kid.chores.filter(c => c.category === category);
-                    if (items.length === 0) return null;
+                    const backlogItems = category === 'home' ? kid.homeChores : [];
+                    if (items.length === 0 && backlogItems.length === 0) return null;
                     const cat = catFromCategory(category);
-                    const done = items.filter(c => c.completed).length;
+                    const done = items.filter(c => c.completed).length + backlogItems.filter(item => !!item.completed_at).length;
                     return (
                       <div key={category}>
-                        <CategoryHeader cat={cat} as="h4" count={t('admin.kidsStatusTab.catCount', { done, total: items.length })} className={styles.catHead} />
+                        <CategoryHeader cat={cat} label={category === 'home' ? t('design.category.home') : undefined} as="h4" count={t('admin.kidsStatusTab.catCount', { done, total: items.length + backlogItems.length })} className={styles.catHead} />
                         <ul className={styles.choreList}>
                           {items.map(c => {
-                            const isOverdue = !c.completed && c.expired && c.category !== 'bonus';
+                            const isOverdue = !c.completed && c.expired && c.category !== 'bonus' && c.category !== 'home';
                             const isPending = c.completion_status === 'pending';
                             const isExcused = c.completion_status === 'excused';
                             const key = `${c.schedule_id}-${c.date}`;
@@ -430,6 +476,37 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
                               </li>
                             );
                           })}
+                          {backlogItems.map(item => (
+                            <li key={`home-${item.chore_id}`} className={clsx(styles.chore, item.completed_at && styles.choreDone)}>
+                              <button
+                                type="button"
+                                className={styles.check}
+                                onClick={e => handleHomeToggle(e, item, kid.user.id)}
+                                disabled={toggling !== null}
+                                aria-label={item.completed_at
+                                  ? t('admin.kidsStatusTab.markNotDone', { title: item.title, name: kid.user.name })
+                                  : t('admin.kidsStatusTab.markDone', { title: item.title, name: kid.user.name })}
+                                title={item.completed_at
+                                  ? t('admin.kidsStatusTab.markNotDone', { title: item.title, name: kid.user.name })
+                                  : t('admin.kidsStatusTab.markDone', { title: item.title, name: kid.user.name })}
+                              >
+                                <span className={clsx(styles.ring, item.completed_at && styles.ringDone)}>
+                                  {toggling === `home-${item.chore_id}`
+                                    ? <Loader2 aria-hidden className={ui.spin} />
+                                    : item.completed_at && <Icon name="check" />}
+                                </span>
+                              </button>
+                              <IconWell icon={item.icon} cat={cat} className={styles.choreWell} />
+                              <span className={styles.choreText}>
+                                <span className={styles.choreTitle}>{item.title}</span>
+                                <span className={styles.choreStatus}>
+                                  {item.completed_at
+                                    ? t('admin.kidsStatusTab.statusDone', { points: item.points_awarded ?? item.points_value })
+                                    : t('admin.kidsStatusTab.statusIdle', { points: item.points_value })}
+                                </span>
+                              </span>
+                            </li>
+                          ))}
                         </ul>
                       </div>
                     );

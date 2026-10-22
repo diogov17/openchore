@@ -9,6 +9,7 @@ import { HouseScope, Icon, type IconName } from '../design';
 import styles from './AdminDashboard.module.css';
 import QuickAssign from '../components/QuickAssign/QuickAssign';
 import { ChoresTab } from '../components/admin/ChoresTab';
+import { HomeBacklogTab } from '../components/admin/HomeBacklogTab';
 import { ApprovalsTab } from '../components/admin/ApprovalsTab';
 import { UsersTab } from '../components/admin/UsersTab';
 import { RewardsTab } from '../components/admin/RewardsTab';
@@ -46,6 +47,8 @@ export const AdminDashboard: React.FC = () => {
   const [tab, setTab] = useState<Tab>('kids-status');
   const [pendingCount, setPendingCount] = useState(0);
   const [quickAssignOpen, setQuickAssignOpen] = useState(false);
+  const [homeRefreshKey, setHomeRefreshKey] = useState(0);
+  const refreshHomeBacklog = useCallback(() => setHomeRefreshKey(key => key + 1), []);
 
   const refreshCount = useCallback(() => {
     api.chores.listPending().then(p => setPendingCount(p.length)).catch(() => {});
@@ -104,7 +107,11 @@ export const AdminDashboard: React.FC = () => {
 
       <main className={styles.content}>
         {tab === 'kids-status' && <KidsStatusTab onPendingChange={setPendingCount} />}
-        {tab === 'chores' && <ChoresTab />}
+        {tab === 'chores' && (
+          <ChoresTab onDataChanged={refreshHomeBacklog}>
+            <HomeBacklogTab embedded refreshKey={homeRefreshKey} onChoreChanged={refreshHomeBacklog} />
+          </ChoresTab>
+        )}
         {tab === 'approvals' && <ApprovalsTab onCountChange={setPendingCount} />}
         {tab === 'users' && <UsersTab />}
         {tab === 'rewards' && <RewardsTab />}

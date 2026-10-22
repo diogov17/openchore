@@ -1,0 +1,1 @@
+ALTER TABLE chores ADD COLUMN is_home INTEGER NOT NULL DEFAULT 0 CHECK (is_home IN (0, 1));

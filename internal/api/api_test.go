@@ -385,7 +385,7 @@ func TestScheduleAndComplete(t *testing.T) {
 	}
 
 	// Uncomplete
-	resp = env.request(t, "DELETE", "/api/schedules/1/complete?date=2026-03-11", nil, adminHeaders())
+	resp = env.request(t, "DELETE", "/api/schedules/1/complete?date=2026-03-11&completed_by=2", nil, adminHeaders())
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d", resp.StatusCode)
 	}
@@ -685,7 +685,7 @@ func TestPointsDebitedOnUncomplete(t *testing.T) {
 		"completed_by":    kidID,
 		"completion_date": "2026-03-11",
 	}, adminHeaders(), http.StatusCreated)
-	env.expectStatus(t, "DELETE", "/api/schedules/1/complete?date=2026-03-11", nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=2026-03-11&completed_by=%d", kidID), nil, adminHeaders(), http.StatusNoContent)
 
 	// Balance should be 0
 	resp := env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
@@ -1345,8 +1345,8 @@ func TestSchedulePointsMultiplier(t *testing.T) {
 	}, adminHeaders())
 
 	resp := env.expectStatus(t, "POST", "/api/chores/1/schedules", map[string]any{
-		"assigned_to":      kidID,
-		"day_of_week":      3,
+		"assigned_to":       kidID,
+		"day_of_week":       3,
 		"points_multiplier": 2.0,
 	}, adminHeaders(), http.StatusCreated)
 	var schedule map[string]any
@@ -1876,7 +1876,7 @@ func TestUncompleteExpiryPenaltyRefund(t *testing.T) {
 	}
 
 	// Uncomplete — penalty should be refunded, balance back to 50
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
 	decodeBody(t, resp, &pts)
@@ -1918,7 +1918,7 @@ func TestUncompleteNormalPointsReversed(t *testing.T) {
 	}
 
 	// Uncomplete — should reverse the 10 point credit
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
 	decodeBody(t, resp, &pts)
@@ -1968,7 +1968,7 @@ func TestRecheckPreservesApprovedPhotoAndPoints(t *testing.T) {
 	}
 
 	// Uncheck.
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
 	decodeBody(t, resp, &pts)
@@ -2002,7 +2002,7 @@ func TestRecheckPreservesApprovedPhotoAndPoints(t *testing.T) {
 	}
 
 	// Uncheck + recheck a second time should still work correctly.
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
 	decodeBody(t, resp, &pts)
 	if pts["balance"].(float64) != 0 {
@@ -2059,7 +2059,7 @@ func TestDoubleUncheckIsIdempotent(t *testing.T) {
 	}
 
 	// First uncheck — should debit once (balance 0) and soft-delete the row.
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
 	decodeBody(t, resp, &pts)
 	if pts["balance"].(float64) != 0 {
@@ -2068,7 +2068,7 @@ func TestDoubleUncheckIsIdempotent(t *testing.T) {
 
 	// Second uncheck on an already-soft-deleted row must NOT debit again and
 	// must NOT hard-delete the preserved row.
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
 	decodeBody(t, resp, &pts)
 	if pts["balance"].(float64) != 0 {
@@ -2153,7 +2153,7 @@ func TestReviveBonusReevaluatesGate(t *testing.T) {
 	}
 
 	// Uncheck the bonus (soft-delete).
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/2/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/2/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 
 	// Now finish the core chore — bonus gate now passes.
 	env.expectStatus(t, "POST", "/api/schedules/1/complete", map[string]any{
@@ -2179,7 +2179,7 @@ func TestReviveBonusReevaluatesGate(t *testing.T) {
 	}
 
 	// Uncheck + recheck a second time — should NOT double-credit the bonus.
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/2/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/2/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 	env.expectStatus(t, "POST", "/api/schedules/2/complete", map[string]any{
 		"completed_by":    kidID,
 		"completion_date": today,
@@ -2247,7 +2247,7 @@ func TestRequiredCompletionOpensBonusGate(t *testing.T) {
 
 	// Uncheck + recheck the bonus should leave the balance stable — no
 	// double-credit from the retroactive path stacking with revive.
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/2/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/2/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
 	decodeBody(t, resp, &pts)
 	if pts["balance"].(float64) != 5 {
@@ -2358,7 +2358,7 @@ func TestRequiredChoresGateCoreChorePoints(t *testing.T) {
 	}
 
 	// Uncheck and recheck the core chore - should not double credit
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/2/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/2/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
 	decodeBody(t, resp, &pts)
 	// Unchecking the 10-point core chore refunds the 5 points that were committed to the goal
@@ -2385,7 +2385,6 @@ func TestRequiredChoresGateCoreChorePoints(t *testing.T) {
 		t.Fatalf("expected 17 committed after rechecking core chore, got %v", pts["committed"])
 	}
 }
-
 
 // =================== BCRYPT PASSCODE TESTS ===================
 
@@ -4059,7 +4058,7 @@ func TestAtomicUncompletePointDebitFailureRollback(t *testing.T) {
 	}
 
 	// Attempt uncomplete — must fail with 500
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s", today), nil, adminHeaders(), http.StatusInternalServerError)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusInternalServerError)
 
 	// Completion must STILL be active (uncompleted_at IS NULL)
 	var uncompletedAt sql.NullString
@@ -4083,7 +4082,7 @@ func TestAtomicUncompletePointDebitFailureRollback(t *testing.T) {
 		t.Fatalf("failed to drop failure trigger: %v", err)
 	}
 
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 
 	// Balance must now be 0
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, childHeaders(kidID), http.StatusOK)
@@ -4423,7 +4422,7 @@ func TestRandomOrderCompletionsAndUncompletionsPointTotals(t *testing.T) {
 	}
 
 	// Step 4: Uncomplete Bonus -> debits 30 -> balance 30
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/3/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/3/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, childHeaders(kidID), http.StatusOK)
 	decodeBody(t, resp, &pts)
@@ -4432,7 +4431,7 @@ func TestRandomOrderCompletionsAndUncompletionsPointTotals(t *testing.T) {
 	}
 
 	// Step 5: Uncomplete Core -> debits 20 -> balance 10
-	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/2/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/2/complete?date=%s&completed_by=%d", today, kidID), nil, adminHeaders(), http.StatusNoContent)
 
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, childHeaders(kidID), http.StatusOK)
 	decodeBody(t, resp, &pts)

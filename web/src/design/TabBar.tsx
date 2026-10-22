@@ -41,14 +41,16 @@ export interface TabBarProps {
    */
   position?: 'absolute' | 'fixed' | 'static';
   className?: string;
+  /** Optional profile-specific tabs, such as Home for adult profiles. */
+  tabs?: readonly { id: TabId; icon: IconName }[];
 }
 
 /** The three tabs every skin shares: Today, Week and Rewards. */
-export function TabBar({ active = 'today', hrefs, onNavigate, renderLink, position = 'absolute', className }: TabBarProps) {
+export function TabBar({ active = 'today', hrefs, onNavigate, renderLink, position = 'absolute', className, tabs = TABS }: TabBarProps) {
   const { t } = useTranslation();
   return (
     <nav className={clsx('oc-tabs', position !== 'absolute' && `oc-tabs--${position}`, className)} aria-label={t('design.tabs.label')}>
-      {TABS.map(({ id, icon }) => {
+      {tabs.map(({ id, icon }) => {
         const on = id === active;
         const label = t(`design.tabs.${id}`);
         const children = (

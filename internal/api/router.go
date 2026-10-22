@@ -56,6 +56,8 @@ func NewRouter(s *store.Store, dispatcher *webhook.Dispatcher, auth Auth) (*chi.
 		// Public, read-only: per-user chores, points and streak. The wall
 		// display (/ambient) shows these without anyone signing in.
 		r.Get("/users/{id}/chores", users.GetChores)
+		r.Get("/users/{id}/home-chores", users.GetHomeChores)
+		r.Get("/home/unassigned", users.GetUnassignedHomeChores)
 		r.Get("/users/{id}/points", points.GetUserPoints)
 		r.Get("/users/{id}/streak", streaks.GetUserStreak)
 
@@ -77,6 +79,9 @@ func NewRouter(s *store.Store, dispatcher *webhook.Dispatcher, auth Auth) (*chi.
 		r.Group(func(r chi.Router) {
 			r.Use(RequireUserOrToken(s, auth.Sessions))
 
+			r.Get("/home/assigned", chores.ListMyAssignedHomeChores)
+			r.Post("/home/assigned/{id}/complete", chores.CompleteAssignedHomeBacklog)
+			r.Delete("/home/assigned/{id}/complete", chores.UncompleteAssignedHomeBacklog)
 			r.Get("/auth/me", authH.Me)
 			r.Post("/auth/logout-everywhere", authH.LogoutEverywhere)
 			r.Post("/auth/upload-link", authH.UploadLink)
@@ -123,6 +128,14 @@ func NewRouter(s *store.Store, dispatcher *webhook.Dispatcher, auth Auth) (*chi.
 				r.Put("/users/{id}/unpause", users.Unpause)
 
 				r.Get("/chores", chores.List)
+				r.Get("/home/backlog", chores.ListHomeBacklog)
+				r.Get("/home/backlog/history", chores.ListHomeBacklogHistory)
+				r.Post("/home/backlog/{id}/complete", chores.CompleteHomeBacklog)
+				r.Post("/home/backlog/{id}/repeat", chores.RepeatHomeBacklog)
+				r.Delete("/home/backlog/{id}/complete", chores.UncompleteHomeBacklog)
+				r.Delete("/home/backlog/completions/{id}", chores.UncompleteHomeBacklogCompletion)
+				r.Put("/home/backlog/{id}/assignment", chores.AssignHomeBacklog)
+				r.Delete("/home/backlog/{id}/assignment", chores.UnassignHomeBacklog)
 				r.Post("/chores", chores.Create)
 				r.Get("/chores/{id}", chores.Get)
 				r.Put("/chores/{id}", chores.Update)

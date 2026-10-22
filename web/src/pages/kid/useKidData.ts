@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, APIError } from '../../api';
 import type {
-  PointsData, RedemptionHistory, Reward, ScheduledChore, User, UserStreakData,
+  HomeBacklogItem, PointsData, RedemptionHistory, Reward, ScheduledChore, User, UserStreakData,
 } from '../../types';
 import { localDateStr } from '../../utils';
 
@@ -20,8 +20,12 @@ export interface ToggleResult {
 export function useKidData(user: User | null, opts: { week: boolean; rewards: boolean }) {
   const { t } = useTranslation();
   const userId = user?.id;
+  const canManageHome = user?.role === 'admin';
   const [today, setToday] = useState(() => localDateStr(new Date()));
   const [chores, setChores] = useState<ScheduledChore[] | null>(null);
+  const [homeBacklog, setHomeBacklog] = useState<HomeBacklogItem[]>([]);
+  const [assignedHome, setAssignedHome] = useState<HomeBacklogItem[]>([]);
+  const homeBacklogRequest = useRef(0);
   const [weekChores, setWeekChores] = useState<ScheduledChore[] | null>(null);
   const [streak, setStreak] = useState<UserStreakData | null>(null);
   const [points, setPoints] = useState<PointsData | null>(null);
@@ -55,6 +59,44 @@ export function useKidData(user: User | null, opts: { week: boolean; rewards: bo
     } catch (e) {
       console.error(e);
       setChores(prev => prev ?? []);
+    }
+  }, [userId, today]);
+
+  const loadHomeBacklog = useCallback(async () => {
+    if (!canManageHome) {
+      homeBacklogRequest.current++;
+      setHomeBacklog([]);
+      return;
+    }
+    const request = ++homeBacklogRequest.current;
+    try {
+      const items = await api.chores.listHomeBacklog();
+      if (request === homeBacklogRequest.current) setHomeBacklog(items);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [canManageHome]);
+
+  const clearHomeCompletion = useCallback((choreId: number) => {
+    setHomeBacklog(prev => prev.map(item => item.chore_id === choreId ? {
+      ...item,
+      completed_by: null,
+      completed_by_name: '',
+      points_awarded: 0,
+      completed_at: null,
+      completion_date: null,
+    } : item));
+  }, []);
+
+  const loadAssignedHome = useCallback(async () => {
+    if (!userId) {
+      setAssignedHome([]);
+      return;
+    }
+    try {
+      setAssignedHome(await api.chores.listMyAssignedHome(today));
+    } catch (e) {
+      console.error(e);
     }
   }, [userId, today]);
 
@@ -92,6 +134,8 @@ export function useKidData(user: User | null, opts: { week: boolean; rewards: bo
   }, [userId]);
 
   useEffect(() => { loadChores(); }, [loadChores]);
+  useEffect(() => { loadHomeBacklog(); }, [loadHomeBacklog]);
+  useEffect(() => { loadAssignedHome(); }, [loadAssignedHome]);
   useEffect(() => { loadExtras(); }, [loadExtras]);
   useEffect(() => { if (opts.week) loadWeek(); }, [opts.week, loadWeek]);
   useEffect(() => { if (opts.rewards) loadRewards(); }, [opts.rewards, loadRewards]);
@@ -104,8 +148,8 @@ export function useKidData(user: User | null, opts: { week: boolean; rewards: bo
   }, [hasPot, people.length]);
 
   const reloadChores = useCallback(async () => {
-    await Promise.all([loadChores(), opts.week ? loadWeek() : Promise.resolve()]);
-  }, [loadChores, loadWeek, opts.week]);
+    await Promise.all([loadChores(), loadHomeBacklog(), loadAssignedHome(), opts.week ? loadWeek() : Promise.resolve()]);
+  }, [loadChores, loadHomeBacklog, loadAssignedHome, loadWeek, opts.week]);
 
   const refreshAll = useCallback(async () => {
     await Promise.all([reloadChores(), loadExtras()]);
@@ -124,14 +168,24 @@ export function useKidData(user: User | null, opts: { week: boolean; rewards: bo
     if (togglingRef.current.has(chore.schedule_id)) return {};
     setTogglingIds(prev => new Set(prev).add(chore.schedule_id));
     try {
+      if (chore.schedule_id < 0) {
+        if (chore.completed) {
+          await api.chores.uncompleteAssignedHome(chore.chore_id);
+          await refreshAll();
+          return {};
+        }
+        await api.chores.completeAssignedHome(chore.chore_id, today);
+        await refreshAll();
+        return { finished: true };
+      }
       if (chore.completed && !opts2.retry) {
-        await api.chores.uncomplete(chore.schedule_id, chore.date);
+        await api.chores.uncomplete(chore.schedule_id, chore.date, chore.completed_by || userId);
         await refreshAll();
         return {};
       }
       if (opts2.retry) {
         // A grown-up said no: clear that try, then start a fresh one.
-        await api.chores.uncomplete(chore.schedule_id, chore.date);
+        await api.chores.uncomplete(chore.schedule_id, chore.date, chore.completed_by || userId);
       }
       const needsPhoto = chore.requires_photo && (chore.photo_source || 'child') === 'child';
       try {
@@ -166,7 +220,7 @@ export function useKidData(user: User | null, opts: { week: boolean; rewards: bo
         return next;
       });
     }
-  }, [today, refreshAll, showToast, t]);
+  }, [today, refreshAll, showToast, t, assignedHome, homeBacklog]);
 
   // --- Rewards and goals ---
 
@@ -292,9 +346,9 @@ export function useKidData(user: User | null, opts: { week: boolean; rewards: bo
   }, [showToast, loadExtras, t]);
 
   return {
-    today, chores, weekChores, streak, points, rewards, redemptions, people,
+    today, chores, homeBacklog, assignedHome, weekChores, streak, points, rewards, redemptions, people,
     togglingIds, toast, showToast,
-    reloadChores, refreshAll, loadRewards, toggle,
+    reloadChores, refreshAll, loadRewards, toggle, clearHomeCompletion,
     commitmentFor, redeem, redeemingId, redeemedId, saveToward, savingTowardId,
     contribute, setAutoContribute, breakCommitment, busyGoals,
   };

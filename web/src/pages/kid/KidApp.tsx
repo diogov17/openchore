@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { SkinScope, TabBar, useMinuteClock, type TabId } from '../../design';
+import { SkinScope, TabBar, TABS, useMinuteClock, type IconName, type TabId } from '../../design';
 import { useAuth } from '../../AuthContext';
 import { useTheme } from '../../ThemeContext';
 import { api } from '../../api';
@@ -16,6 +16,7 @@ import { choreView, gates, isDone, type ChoreView } from './choreView';
 import { useKidData } from './useKidData';
 import { TopBar, CAT_ORDER } from './parts';
 import { TodayScreen } from './TodayScreen';
+import { HomeScreen } from './HomeScreen';
 import { WeekScreen } from './WeekScreen';
 import { RewardsScreen } from './RewardsScreen';
 import { PhotoSheet } from './PhotoSheet';
@@ -25,7 +26,8 @@ import { choreDomId } from './ChoreItem';
 import { catFromCategory } from '../../design';
 import s from './kid.module.css';
 
-const HREFS: Record<TabId, string> = { today: '/', week: '/week', rewards: '/rewards' };
+const HREFS: Record<TabId, string> = { home: '/home', today: '/', week: '/week', rewards: '/rewards' };
+const ADULT_TABS: readonly { id: TabId; icon: IconName }[] = [{ id: 'home', icon: 'broom' }, ...TABS];
 
 const ttsKey = (id: number) => `openchore_tts_${id}`;
 function readTts(id: number, age?: number): boolean {
@@ -50,9 +52,23 @@ export const KidApp: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const now = useMinuteClock();
 
-  const tab: TabId = location.pathname.startsWith('/week') ? 'week'
+  const tab: TabId = location.pathname.startsWith('/home') ? 'home'
+    : location.pathname.startsWith('/week') ? 'week'
     : location.pathname.startsWith('/rewards') ? 'rewards' : 'today';
   const data = useKidData(user, { week: tab === 'week', rewards: tab === 'rewards' });
+  const [homeRefreshKey, setHomeRefreshKey] = useState(0);
+
+  // Refresh shared Home completion state whenever Today becomes visible. A
+  // completion may have been recorded in Manage while this screen was away.
+  useEffect(() => {
+    if (tab === 'today') void data.refreshAll();
+  }, [tab, data.refreshAll]);
+
+  useEffect(() => {
+    if (tab !== 'home') return;
+    setHomeRefreshKey(key => key + 1);
+    void data.refreshAll();
+  }, [tab, data.refreshAll]);
 
   const [tts, setTts] = useState(() => (user ? readTts(user.id, user.age) : false));
   const [meOpen, setMeOpen] = useState(false);
@@ -187,6 +203,7 @@ export const KidApp: React.FC = () => {
       <main className={s.main}>
         <Routes>
           <Route index element={<TodayScreen {...shared} now={now} />} />
+          <Route path="home" element={isAdmin ? <HomeScreen user={user} data={data} topBar={topBar} refreshKey={homeRefreshKey} /> : <Navigate to="/" replace />} />
           <Route path="week" element={<WeekScreen {...shared} />} />
           <Route path="rewards" element={<RewardsScreen user={user} data={data} topBar={topBar} onRedeemed={playComplete} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -196,6 +213,7 @@ export const KidApp: React.FC = () => {
       <TabBar
         active={tab}
         hrefs={HREFS}
+        tabs={isAdmin ? ADULT_TABS : TABS}
         position="fixed"
         className={s.tabs}
         renderLink={({ tab: id, href, ...p }) => <Link key={id} to={href} {...p} />}

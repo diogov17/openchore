@@ -397,7 +397,7 @@ function ReportBody({ data, colors, aiSummaries, summaryLoading, onSummary }: Re
               const cat = catFromCategory(c.category);
               return {
                 key: c.category,
-                label: t(`design.category.${cat}`),
+                label: t(c.category === 'home' ? 'design.category.home' : `design.category.${cat}`),
                 lead: <CategoryMark cat={cat} className={styles.mark} />,
                 value: c.completion_rate,
                 valueLabel: pct(c.completion_rate),

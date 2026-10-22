@@ -7,6 +7,7 @@ import { DAY_NAMES } from '../../types';
 import type { User } from '../../types';
 import { localDateStr, toggleInArray } from '../../utils';
 import { useAIStatus } from '../../hooks/useAIStatus';
+import { useAuth } from '../../AuthContext';
 import { Icon, catFromCategory } from '../../design';
 import { CategoryLabel, CategoryPicker, IconPicker, IconWell, PersonName, PersonToggle } from '../admin/pickers';
 import styles from './CreateChoreWizard.module.css';
@@ -14,7 +15,7 @@ import styles from './CreateChoreWizard.module.css';
 interface ChoreData {
   title: string;
   description: string;
-  category: 'required' | 'core' | 'bonus';
+  category: 'required' | 'core' | 'bonus' | 'home';
   icon: string;
   points: number;
   missedPenalty: number;
@@ -25,6 +26,7 @@ interface ChoreData {
 }
 
 interface ScheduleData {
+  shared: boolean;
   selectedUsers: number[];
   scheduleType: 'weekly' | 'interval' | 'oneoff';
   selectedDays: number[];
@@ -55,7 +57,7 @@ const defaultChoreData: ChoreData = {
 };
 
 const defaultScheduleData: ScheduleData = {
-  selectedUsers: [], scheduleType: 'weekly', selectedDays: [],
+  shared: false, selectedUsers: [], scheduleType: 'weekly', selectedDays: [],
   interval: 2, intervalStart: localDateStr(new Date()),
   specificDate: localDateStr(new Date()),
   availableAt: '', dueBy: '', expiryPenalty: 'block', expiryPenaltyValue: 5,
@@ -63,6 +65,7 @@ const defaultScheduleData: ScheduleData = {
 
 const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users }) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [chore, setChore] = useState<ChoreData>({ ...defaultChoreData });
   const [schedule, setSchedule] = useState<ScheduleData>({ ...defaultScheduleData });
@@ -100,7 +103,8 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
   const handleClose = () => { reset(); onClose(); };
 
   const canNext0 = chore.title.trim().length > 0;
-  const canNext1 = skipSchedule || (schedule.selectedUsers.length > 0 && (
+  const noScheduleTarget = !schedule.shared && schedule.selectedUsers.length === 0;
+  const canNext1 = skipSchedule || (chore.category === 'home' && noScheduleTarget) || ((schedule.shared || schedule.selectedUsers.length > 0) && (
     (schedule.scheduleType === 'weekly' && schedule.selectedDays.length > 0) ||
     (schedule.scheduleType === 'interval' && schedule.interval > 0) ||
     (schedule.scheduleType === 'oneoff' && schedule.specificDate)
@@ -149,12 +153,12 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
         photo_source: chore.requiresPhoto ? chore.photoSource : 'child',
       });
 
-      if (!skipSchedule && schedule.selectedUsers.length > 0) {
+      if (!skipSchedule && (schedule.shared || schedule.selectedUsers.length > 0)) {
         const penaltyFields = schedule.dueBy
           ? { expiry_penalty: schedule.expiryPenalty, expiry_penalty_value: schedule.expiryPenalty === 'penalty' ? schedule.expiryPenaltyValue : 0 }
           : {};
         const common = {
-          assignment_type: 'individual' as const,
+          assignment_type: schedule.shared ? 'family' : 'individual',
           available_at: schedule.availableAt || undefined,
           due_by: schedule.dueBy || undefined,
           points_multiplier: 1,
@@ -162,7 +166,8 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
         };
 
         const promises: Promise<{ userId: number }>[] = [];
-        for (const userId of schedule.selectedUsers) {
+        const scheduledUsers = schedule.shared ? (user ? [user.id] : []) : schedule.selectedUsers;
+        for (const userId of scheduledUsers) {
           if (schedule.scheduleType === 'weekly') {
             for (const day of schedule.selectedDays) {
               promises.push(
@@ -275,8 +280,18 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
   // --- STEP 2: Schedule ---
   const renderStep1 = () => (
     <div className={styles.formGrid}>
-      <p className={styles.helpText}>{t('admin.createChore.schedule.helpText')}</p>
+      <p className={styles.helpText}>{t(chore.category === 'home' ? 'admin.createChore.schedule.homeHelpText' : 'admin.createChore.schedule.helpText')}</p>
 
+      <label className={styles.checkRow}>
+        <input type="checkbox" checked={schedule.shared} onChange={e => {
+          const shared = e.target.checked;
+          setSchedule(s => ({ ...s, shared }));
+          if (shared) setChore(c => ({ ...c, category: 'home' }));
+        }} />
+        <span className={styles.checkLabel}>{t('admin.createChore.schedule.shared')}</span>
+      </label>
+
+      {!schedule.shared && (
       <div className={styles.formGroup}>
         <span className={styles.label}>{t('admin.createChore.schedule.assignTo')}</span>
         <div className={styles.chips}>
@@ -286,6 +301,7 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
           ))}
         </div>
       </div>
+      )}
 
       <label className={styles.formGroup}>
         <span className={styles.label}>{t('admin.createChore.schedule.typeLabel')}</span>
@@ -340,6 +356,7 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
           <input className={styles.input} type="time" value={schedule.dueBy} onChange={e => setSchedule(s => ({ ...s, dueBy: e.target.value }))} />
         </label>
       </div>
+
 
       {schedule.dueBy && (
         <div className={styles.formRow}>
@@ -423,16 +440,18 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
             <h3 className={styles.reviewTitle}>{t('admin.createChore.review.scheduleTitle')}</h3>
             <button type="button" className={styles.editLink} onClick={() => { setSkipSchedule(false); setStep(1); }}>{t('admin.createChore.review.edit')}</button>
           </div>
-          {!skipSchedule ? (
+          {!skipSchedule && !noScheduleTarget ? (
             <dl className={styles.reviewList}>
               <div className={styles.reviewRow}>
                 <dt className={styles.reviewLabel}>{t('admin.createChore.review.assigned')}</dt>
                 <dd className={styles.reviewValue}>
-                  <span className={styles.reviewPeople}>
-                    {schedule.selectedUsers.map(id => (
-                      <PersonName key={id} user={users.find(u => u.id === id)} name={getUserName(id)} />
-                    ))}
-                  </span>
+                  {schedule.shared ? t('admin.createChore.review.sharedAdults') : (
+                    <span className={styles.reviewPeople}>
+                      {schedule.selectedUsers.map(id => (
+                        <PersonName key={id} user={users.find(u => u.id === id)} name={getUserName(id)} />
+                      ))}
+                    </span>
+                  )}
                 </dd>
               </div>
               <div className={styles.reviewRow}>
@@ -453,7 +472,7 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
               )}
             </dl>
           ) : (
-            <p className={styles.noSchedule}>{t('admin.createChore.review.noSchedule')}</p>
+            <p className={styles.noSchedule}>{t(chore.category === 'home' ? 'admin.createChore.review.homeBacklog' : 'admin.createChore.review.noSchedule')}</p>
           )}
         </section>
       </div>

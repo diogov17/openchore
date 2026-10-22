@@ -1,0 +1,58 @@
+/* Keep the full management rows on desktop; prioritize doing chores on phones. */
+.list {
+  overflow: visible;
+}
+
+.historyToggle {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .row {
+    gap: 8px;
+    padding: 12px;
+    align-items: flex-start;
+  }
+
+  .edit {
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .edit > svg:last-child,
+  .description,
+  .edit .points {
+    display: none;
+  }
+
+  .actions {
+    gap: 4px;
+  }
+
+  .desktopHeading,
+  .historyCollapsed {
+    display: none;
+  }
+
+  .historyToggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+    padding: 8px 2px;
+    border: 0;
+    background: transparent;
+    color: var(--ink-muted);
+    font: inherit;
+    font-weight: 650;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .historyToggle svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+  }
+}

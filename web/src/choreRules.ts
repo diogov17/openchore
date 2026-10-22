@@ -2,7 +2,8 @@
 // that shows them (Today, Week, the wall display) agrees.
 import type { ScheduledChore } from './types';
 
-type Chore = Pick<ScheduledChore, 'category' | 'available' | 'completed' | 'completion_status'>;
+type Chore = Pick<ScheduledChore, 'category' | 'available' | 'completed' | 'completion_status'> &
+  Partial<Pick<ScheduledChore, 'assignment_type'>>;
 
 /** Done for the day: completed in any way except a grown-up's rejection. */
 export function isChoreDone(c: Chore): boolean {
@@ -17,7 +18,7 @@ export function isChoreDone(c: Chore): boolean {
  * - `bonusOpen`: every Must do and Every day chore is done, so Bonus opens.
  */
 export function dayGates(todayChores: readonly Chore[]): { requiredDone: boolean; bonusOpen: boolean } {
-  const open = todayChores.filter(c => c.available || c.completed);
+  const open = todayChores.filter(c => c.assignment_type !== 'family' && c.category !== 'home' && (c.available || c.completed));
   return {
     requiredDone: open.filter(c => c.category === 'required').every(isChoreDone),
     bonusOpen: open.filter(c => c.category !== 'bonus').every(isChoreDone),

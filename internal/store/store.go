@@ -359,10 +359,15 @@ func (s *Store) CreateChore(ctx context.Context, c *model.Chore) error {
 	if photoSource == "" {
 		photoSource = model.PhotoSourceChild
 	}
+	dbCategory := c.Category
+	if dbCategory == model.CategoryHome {
+		c.IsHome = true
+		dbCategory = model.CategoryCore
+	}
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO chores (title, description, category, icon, points_value, missed_penalty_value, estimated_minutes, requires_approval, requires_photo, photo_source, source, external_id, tts_audio_url, created_by)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		c.Title, c.Description, c.Category, c.Icon, c.PointsValue, c.MissedPenaltyValue, c.EstimatedMinutes, requiresApproval, requiresPhoto, photoSource, c.Source, c.ExternalID, c.TTSAudioURL, c.CreatedBy)
+		`INSERT INTO chores (title, description, category, is_home, icon, points_value, missed_penalty_value, estimated_minutes, requires_approval, requires_photo, photo_source, source, external_id, tts_audio_url, created_by)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		c.Title, c.Description, dbCategory, boolToInt(c.IsHome), c.Icon, c.PointsValue, c.MissedPenaltyValue, c.EstimatedMinutes, requiresApproval, requiresPhoto, photoSource, c.Source, c.ExternalID, c.TTSAudioURL, c.CreatedBy)
 	if err != nil {
 		return err
 	}
@@ -372,22 +377,26 @@ func (s *Store) CreateChore(ctx context.Context, c *model.Chore) error {
 
 func (s *Store) GetChore(ctx context.Context, id int64) (*model.Chore, error) {
 	c := &model.Chore{}
-	var reqApp, reqPho int
+	var reqApp, reqPho, isHome int
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, title, description, category, icon, points_value, missed_penalty_value, estimated_minutes, requires_approval, requires_photo, photo_source, source, external_id, tts_audio_url, created_by, created_at
+		`SELECT id, title, description, category, is_home, icon, points_value, missed_penalty_value, estimated_minutes, requires_approval, requires_photo, photo_source, source, external_id, tts_audio_url, created_by, created_at
 		 FROM chores WHERE id = ?`, id).
-		Scan(&c.ID, &c.Title, &c.Description, &c.Category, &c.Icon, &c.PointsValue, &c.MissedPenaltyValue, &c.EstimatedMinutes, &reqApp, &reqPho, &c.PhotoSource, &c.Source, &c.ExternalID, &c.TTSAudioURL, &c.CreatedBy, &c.CreatedAt)
+		Scan(&c.ID, &c.Title, &c.Description, &c.Category, &isHome, &c.Icon, &c.PointsValue, &c.MissedPenaltyValue, &c.EstimatedMinutes, &reqApp, &reqPho, &c.PhotoSource, &c.Source, &c.ExternalID, &c.TTSAudioURL, &c.CreatedBy, &c.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	c.RequiresApproval = reqApp == 1
 	c.RequiresPhoto = reqPho == 1
+	c.IsHome = isHome == 1
+	if c.IsHome {
+		c.Category = model.CategoryHome
+	}
 	return c, err
 }
 
 func (s *Store) ListChores(ctx context.Context) ([]model.Chore, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, title, description, category, icon, points_value, missed_penalty_value, estimated_minutes, requires_approval, requires_photo, photo_source, source, external_id, tts_audio_url, created_by, created_at
+		`SELECT id, title, description, category, is_home, icon, points_value, missed_penalty_value, estimated_minutes, requires_approval, requires_photo, photo_source, source, external_id, tts_audio_url, created_by, created_at
 		 FROM chores ORDER BY title`)
 	if err != nil {
 		return nil, err
@@ -396,15 +405,348 @@ func (s *Store) ListChores(ctx context.Context) ([]model.Chore, error) {
 	var chores []model.Chore
 	for rows.Next() {
 		var c model.Chore
-		var reqApp, reqPho int
-		if err := rows.Scan(&c.ID, &c.Title, &c.Description, &c.Category, &c.Icon, &c.PointsValue, &c.MissedPenaltyValue, &c.EstimatedMinutes, &reqApp, &reqPho, &c.PhotoSource, &c.Source, &c.ExternalID, &c.TTSAudioURL, &c.CreatedBy, &c.CreatedAt); err != nil {
+		var reqApp, reqPho, isHome int
+		if err := rows.Scan(&c.ID, &c.Title, &c.Description, &c.Category, &isHome, &c.Icon, &c.PointsValue, &c.MissedPenaltyValue, &c.EstimatedMinutes, &reqApp, &reqPho, &c.PhotoSource, &c.Source, &c.ExternalID, &c.TTSAudioURL, &c.CreatedBy, &c.CreatedAt); err != nil {
 			return nil, err
 		}
 		c.RequiresApproval = reqApp == 1
 		c.RequiresPhoto = reqPho == 1
+		c.IsHome = isHome == 1
+		if c.IsHome {
+			c.Category = model.CategoryHome
+		}
 		chores = append(chores, c)
 	}
 	return chores, rows.Err()
+}
+
+// HomeBacklogItem is an unscheduled Home chore, optionally with its one-time
+// completion details. Home chores with schedules remain in the normal chore
+// views and are excluded from this backlog.
+type HomeBacklogItem struct {
+	ChoreID          int64      `json:"chore_id"`
+	CompletionID     *int64     `json:"completion_id,omitempty"`
+	Title            string     `json:"title"`
+	Description      string     `json:"description"`
+	Icon             string     `json:"icon,omitempty"`
+	PointsValue      int        `json:"points_value"`
+	EstimatedMinutes int        `json:"estimated_minutes,omitempty"`
+	CompletedBy      *int64     `json:"completed_by,omitempty"`
+	CompletedByName  string     `json:"completed_by_name,omitempty"`
+	CompletedByColor string     `json:"completed_by_color,omitempty"`
+	PointsAwarded    int        `json:"points_awarded"`
+	CompletedAt      *time.Time `json:"completed_at,omitempty"`
+	CompletionDate   *string    `json:"completion_date,omitempty"`
+	AssignedTo       *int64     `json:"assigned_to,omitempty"`
+	AssignedToName   string     `json:"assigned_to_name,omitempty"`
+	AssignedToAll    bool       `json:"assigned_to_all,omitempty"`
+	History          bool       `json:"history,omitempty"`
+}
+
+func (s *Store) ListHomeBacklog(ctx context.Context) ([]HomeBacklogItem, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT c.id, c.title, c.description, c.icon, c.points_value, COALESCE(c.estimated_minutes,0),
+		       hbc.completed_by, COALESCE(u.name, ''), COALESCE(u.color, ''), COALESCE(hbc.points_awarded, 0), hbc.completed_at, hbc.completion_date,
+	       hca.assigned_to, COALESCE(au.name, ''), CASE WHEN hca.id IS NOT NULL AND hca.assigned_to IS NULL THEN 1 ELSE 0 END
+		FROM chores c
+	LEFT JOIN home_backlog_completions hbc ON hbc.chore_id = c.id AND hbc.uncompleted_at IS NULL AND hbc.superseded_at IS NULL
+	LEFT JOIN users u ON u.id = hbc.completed_by
+	LEFT JOIN home_chore_assignments hca ON hca.chore_id = c.id AND hca.unassigned_at IS NULL
+	LEFT JOIN users au ON au.id = hca.assigned_to
+		WHERE c.is_home = 1
+		  AND NOT EXISTS (SELECT 1 FROM chore_schedules cs WHERE cs.chore_id = c.id)
+		ORDER BY CASE WHEN hbc.chore_id IS NULL THEN 0 ELSE 1 END, c.title`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HomeBacklogItem{}
+	for rows.Next() {
+		var item HomeBacklogItem
+		if err := rows.Scan(&item.ChoreID, &item.Title, &item.Description, &item.Icon, &item.PointsValue, &item.EstimatedMinutes,
+			&item.CompletedBy, &item.CompletedByName, &item.CompletedByColor, &item.PointsAwarded, &item.CompletedAt, &item.CompletionDate,
+			&item.AssignedTo, &item.AssignedToName, &item.AssignedToAll); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// ListHomeBacklogHistory returns earlier completed rounds after a chore was
+// added to the backlog again. Their point transactions remain untouched.
+func (s *Store) ListHomeBacklogHistory(ctx context.Context) ([]HomeBacklogItem, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT c.id, hbc.id, c.title, c.description, c.icon, c.points_value, COALESCE(c.estimated_minutes,0),
+		       hbc.completed_by, COALESCE(u.name, ''), COALESCE(u.color, ''), hbc.points_awarded, hbc.completed_at, hbc.completion_date
+		FROM home_backlog_completions hbc
+		JOIN chores c ON c.id = hbc.chore_id
+		LEFT JOIN users u ON u.id = hbc.completed_by
+		WHERE c.is_home = 1 AND hbc.superseded_at IS NOT NULL AND hbc.uncompleted_at IS NULL
+		  AND NOT EXISTS (SELECT 1 FROM chore_schedules cs WHERE cs.chore_id = c.id)
+		ORDER BY hbc.completed_at DESC, hbc.id DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HomeBacklogItem{}
+	for rows.Next() {
+		var item HomeBacklogItem
+		if err := rows.Scan(&item.ChoreID, &item.CompletionID, &item.Title, &item.Description, &item.Icon, &item.PointsValue, &item.EstimatedMinutes,
+			&item.CompletedBy, &item.CompletedByName, &item.CompletedByColor, &item.PointsAwarded, &item.CompletedAt, &item.CompletionDate); err != nil {
+			return nil, err
+		}
+		item.History = true
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// ListUnassignedHomeChores returns open, unscheduled Home chores with no
+// active person assignment for the public wall display.
+func (s *Store) ListUnassignedHomeChores(ctx context.Context) ([]HomeBacklogItem, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT c.id, c.title, c.description, c.icon, c.points_value, c.estimated_minutes
+		FROM chores c
+		WHERE c.is_home = 1
+		  AND NOT EXISTS (SELECT 1 FROM chore_schedules cs WHERE cs.chore_id = c.id)
+		  AND NOT EXISTS (SELECT 1 FROM home_chore_assignments hca WHERE hca.chore_id = c.id AND hca.unassigned_at IS NULL)
+		  AND NOT EXISTS (SELECT 1 FROM home_backlog_completions hbc WHERE hbc.chore_id = c.id AND hbc.uncompleted_at IS NULL AND hbc.superseded_at IS NULL)
+		ORDER BY c.title`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HomeBacklogItem{}
+	for rows.Next() {
+		var item HomeBacklogItem
+		if err := rows.Scan(&item.ChoreID, &item.Title, &item.Description, &item.Icon, &item.PointsValue, &item.EstimatedMinutes); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// ListAssignedHomeChores returns a person's unfinished assigned Home chores
+// plus chores they completed today. Unfinished assignments do not expire at
+// midnight.
+func (s *Store) ListAssignedHomeChores(ctx context.Context, userID int64, date string) ([]HomeBacklogItem, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT c.id, c.title, c.description, c.icon, c.points_value, COALESCE(c.estimated_minutes,0),
+		       hbc.completed_by, COALESCE(cu.name, ''), COALESCE(hbc.points_awarded, 0), hbc.completed_at, hbc.completion_date,
+		       hca.assigned_to, COALESCE(au.name, ''), CASE WHEN hca.assigned_to IS NULL THEN 1 ELSE 0 END
+		FROM home_chore_assignments hca
+		JOIN chores c ON c.id = hca.chore_id
+		LEFT JOIN users au ON au.id = hca.assigned_to
+		LEFT JOIN home_backlog_completions hbc ON hbc.chore_id = c.id AND hbc.uncompleted_at IS NULL AND hbc.superseded_at IS NULL
+		LEFT JOIN users cu ON cu.id = hbc.completed_by
+		WHERE hca.unassigned_at IS NULL
+		  AND (hca.assigned_to = ? OR (hca.assigned_to IS NULL AND EXISTS (SELECT 1 FROM users me WHERE me.id = ? AND me.role = 'admin')))
+		  AND c.is_home = 1
+		  AND NOT EXISTS (SELECT 1 FROM chore_schedules cs WHERE cs.chore_id = c.id)
+		  AND (hbc.id IS NULL OR hbc.completion_date = ?)
+		ORDER BY hbc.id IS NOT NULL, c.title`, userID, userID, date)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HomeBacklogItem{}
+	for rows.Next() {
+		var item HomeBacklogItem
+		if err := rows.Scan(&item.ChoreID, &item.Title, &item.Description, &item.Icon, &item.PointsValue, &item.EstimatedMinutes,
+			&item.CompletedBy, &item.CompletedByName, &item.PointsAwarded, &item.CompletedAt, &item.CompletionDate,
+			&item.AssignedTo, &item.AssignedToName, &item.AssignedToAll); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// AssignHomeBacklogChore gives an unfinished unscheduled Home chore to one
+// person or to all admins. Reassignment replaces the active assignment while
+// retaining history; a nil assignee means all admins.
+func (s *Store) AssignHomeBacklogChore(ctx context.Context, choreID, userID int64, allAdmins bool) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var exists int
+	err = tx.QueryRowContext(ctx, `
+		SELECT 1 FROM chores c
+		WHERE c.id = ? AND c.is_home = 1
+		  AND NOT EXISTS (SELECT 1 FROM chore_schedules cs WHERE cs.chore_id = c.id)
+		  AND NOT EXISTS (SELECT 1 FROM home_backlog_completions hbc WHERE hbc.chore_id = c.id AND hbc.uncompleted_at IS NULL AND hbc.superseded_at IS NULL)`, choreID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE home_chore_assignments SET unassigned_at = CURRENT_TIMESTAMP WHERE chore_id = ? AND unassigned_at IS NULL`, choreID); err != nil {
+		return err
+	}
+	var assignee any = userID
+	if allAdmins {
+		assignee = nil
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO home_chore_assignments (chore_id, assigned_to) VALUES (?, ?)`, choreID, assignee); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) UnassignHomeBacklogChore(ctx context.Context, choreID int64) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE home_chore_assignments SET unassigned_at = CURRENT_TIMESTAMP WHERE chore_id = ? AND unassigned_at IS NULL`, choreID)
+	if err != nil {
+		return err
+	}
+	count, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// CompleteHomeBacklogChore records a one-time backlog completion and credits
+// its points to the adult who completed it in the same transaction.
+func (s *Store) CompleteHomeBacklogChore(ctx context.Context, choreID, userID int64, completionDate string) error {
+	return s.completeHomeBacklogChore(ctx, choreID, userID, completionDate, false)
+}
+
+func (s *Store) CompleteAssignedHomeBacklogChore(ctx context.Context, choreID, userID int64, completionDate string) error {
+	return s.completeHomeBacklogChore(ctx, choreID, userID, completionDate, true)
+}
+
+// RepeatHomeBacklogChore opens a new round while retaining the prior
+// completion and its points in history.
+func (s *Store) RepeatHomeBacklogChore(ctx context.Context, choreID int64) error {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE home_backlog_completions
+		SET superseded_at = CURRENT_TIMESTAMP
+		WHERE id = (
+			SELECT hbc.id FROM home_backlog_completions hbc
+			JOIN chores c ON c.id = hbc.chore_id
+			WHERE hbc.chore_id = ? AND hbc.uncompleted_at IS NULL AND hbc.superseded_at IS NULL
+			  AND c.is_home = 1
+			  AND NOT EXISTS (SELECT 1 FROM chore_schedules cs WHERE cs.chore_id = c.id)
+		)
+		AND uncompleted_at IS NULL AND superseded_at IS NULL`, choreID)
+	if err != nil {
+		return err
+	}
+	count, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *Store) completeHomeBacklogChore(ctx context.Context, choreID, userID int64, completionDate string, requireAssignment bool) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var pts int
+	err = tx.QueryRowContext(ctx, `
+		SELECT c.points_value FROM chores c
+		WHERE c.id = ? AND c.is_home = 1
+		  AND NOT EXISTS (SELECT 1 FROM chore_schedules cs WHERE cs.chore_id = c.id)
+		  AND (? = 0 OR EXISTS (
+			SELECT 1 FROM home_chore_assignments hca
+			WHERE hca.chore_id = c.id AND hca.unassigned_at IS NULL
+			  AND (hca.assigned_to = ? OR (hca.assigned_to IS NULL AND EXISTS (
+				SELECT 1 FROM users me WHERE me.id = ? AND me.role = 'admin'
+			  )))
+		  ))`, choreID, boolToInt(requireAssignment), userID, userID).Scan(&pts)
+	if err != nil {
+		return err
+	}
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO home_backlog_completions (chore_id, completed_by, points_awarded, completion_date)
+		VALUES (?, ?, ?, ?)`, choreID, userID, pts, completionDate)
+	if err != nil {
+		return err
+	}
+	completionID, err := res.LastInsertId()
+	if err != nil {
+		return err
+	}
+	refID := -completionID // Negative IDs keep auto-contribution references separate from scheduled completions.
+	if _, err := tx.ExecContext(ctx, `UPDATE home_backlog_completions SET point_reference_id = ? WHERE id = ?`, refID, completionID); err != nil {
+		return err
+	}
+	if pts > 0 {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO point_transactions (user_id, amount, reason, reference_id, note)
+			VALUES (?, ?, ?, ?, 'Home backlog chore')`, userID, pts, model.ReasonChoreComplete, refID); err != nil {
+			return err
+		}
+		if err := s.applyAutoContributeTx(ctx, tx, userID, refID, pts); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// UncompleteHomeBacklogChore reopens the chore and reverses its points and
+// any automatic reward contributions atomically.
+func (s *Store) UncompleteHomeBacklogChore(ctx context.Context, choreID, completedBy int64) error {
+	return s.uncompleteHomeBacklogChore(ctx, choreID, 0, completedBy, false)
+}
+
+// UncompleteHomeBacklogCompletion reverses one specific completed round,
+// including a superseded round that has since been added again.
+func (s *Store) UncompleteHomeBacklogCompletion(ctx context.Context, completionID, completedBy int64) error {
+	return s.uncompleteHomeBacklogChore(ctx, 0, completionID, completedBy, false)
+}
+
+func (s *Store) UncompleteAssignedHomeBacklogChore(ctx context.Context, choreID, userID int64) error {
+	return s.uncompleteHomeBacklogChore(ctx, choreID, 0, userID, true)
+}
+
+func (s *Store) uncompleteHomeBacklogChore(ctx context.Context, choreID, targetCompletionID, completedBy int64, requireAssignment bool) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var completionID, pointReferenceID int64
+	var userID sql.NullInt64
+	var pts int
+	err = tx.QueryRowContext(ctx, `
+		SELECT hbc.id, hbc.point_reference_id, hbc.completed_by, hbc.points_awarded
+		FROM home_backlog_completions hbc
+		JOIN chores c ON c.id = hbc.chore_id
+		WHERE ((? = 0 AND hbc.chore_id = ?) OR (? > 0 AND hbc.id = ?))
+		  AND hbc.uncompleted_at IS NULL AND (? = 1 OR hbc.superseded_at IS NULL)
+		  AND hbc.completed_by = ?
+		  AND (? = 0 OR EXISTS (SELECT 1 FROM home_chore_assignments hca WHERE hca.chore_id = c.id AND hca.unassigned_at IS NULL))`,
+		boolToInt(targetCompletionID > 0), choreID, targetCompletionID, targetCompletionID, boolToInt(targetCompletionID > 0), completedBy, boolToInt(requireAssignment)).Scan(&completionID, &pointReferenceID, &userID, &pts)
+	if err != nil {
+		return err
+	}
+	if pts > 0 && userID.Valid {
+		refID := pointReferenceID
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO point_transactions (user_id, amount, reason, reference_id, note)
+			VALUES (?, ?, ?, ?, 'Home backlog chore unchecked')`, userID.Int64, -pts, model.ReasonChoreUncomplete, refID); err != nil {
+			return err
+		}
+		if err := s.reverseAutoContributeTx(ctx, tx, userID.Int64, refID); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE home_backlog_completions SET uncompleted_at = CURRENT_TIMESTAMP WHERE id = ?`, completionID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) UpdateChore(ctx context.Context, c *model.Chore) error {
@@ -414,10 +756,17 @@ func (s *Store) UpdateChore(ctx context.Context, c *model.Chore) error {
 	if photoSource == "" {
 		photoSource = model.PhotoSourceChild
 	}
+	dbCategory := c.Category
+	if dbCategory == model.CategoryHome {
+		c.IsHome = true
+		dbCategory = model.CategoryCore
+	} else {
+		c.IsHome = false
+	}
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE chores SET title=?, description=?, category=?, icon=?, points_value=?, missed_penalty_value=?, estimated_minutes=?, requires_approval=?, requires_photo=?, photo_source=?, source=?, external_id=?
+		`UPDATE chores SET title=?, description=?, category=?, is_home=?, icon=?, points_value=?, missed_penalty_value=?, estimated_minutes=?, requires_approval=?, requires_photo=?, photo_source=?, source=?, external_id=?
 		 WHERE id=?`,
-		c.Title, c.Description, c.Category, c.Icon, c.PointsValue, c.MissedPenaltyValue, c.EstimatedMinutes, requiresApproval, requiresPhoto, photoSource, c.Source, c.ExternalID, c.ID)
+		c.Title, c.Description, dbCategory, boolToInt(c.IsHome), c.Icon, c.PointsValue, c.MissedPenaltyValue, c.EstimatedMinutes, requiresApproval, requiresPhoto, photoSource, c.Source, c.ExternalID, c.ID)
 	return err
 }
 
@@ -450,6 +799,12 @@ func (s *Store) DeleteSchedule(ctx context.Context, id int64) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM chore_schedules WHERE id = ?`, id)
 	return err
 }
+
+
+
+
+
+
 
 // ScheduleExistsForDate checks if a one-off schedule already exists for a chore + user + date.
 func (s *Store) ScheduleExistsForDate(ctx context.Context, choreID, userID int64, date string) (bool, error) {
@@ -487,10 +842,10 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 
 	query := `
 		SELECT
-			cs.id, c.id, c.title, c.description, c.category, c.icon, c.points_value, c.missed_penalty_value, c.estimated_minutes, c.requires_approval, c.requires_photo, c.photo_source,
+			cs.id, c.id, c.title, c.description, CASE WHEN c.is_home=1 THEN 'home' ELSE c.category END, c.icon, c.points_value, c.missed_penalty_value, c.estimated_minutes, c.requires_approval, c.requires_photo, c.photo_source,
 			cs.assignment_type, cs.available_at, cs.due_by, cs.expiry_penalty, cs.expiry_penalty_value,
 			cs.day_of_week, cs.specific_date,
-			cc.id, cc.completed_at, cc.photo_url, cc.status, cc.ai_feedback,
+			cc.id, cc.completed_by, cc.completed_at, cc.photo_url, cc.status, cc.ai_feedback,
 			c.tts_audio_url,
 			(SELECT u2.name FROM chore_completions cc2
 			 JOIN chore_schedules cs2 ON cs2.id = cc2.chore_schedule_id
@@ -515,7 +870,7 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 				END
 				LIMIT 1
 			)
-		WHERE cs.assigned_to = ?
+		WHERE (cs.assigned_to = ? OR (cs.assignment_type = ? AND EXISTS (SELECT 1 FROM users WHERE id=? AND role=?)))
 		  AND (
 			(cs.day_of_week = ? AND cs.specific_date IS NULL AND cs.recurrence_interval IS NULL)
 			OR (cs.specific_date = ? AND cs.recurrence_interval IS NULL)
@@ -536,13 +891,14 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 			return nil, fmt.Errorf("invalid date %s: %w", dateStr, err)
 		}
 		dow := int(t.Weekday())
-		rows, err := s.db.QueryContext(ctx, query, dateStr, dateStr, userID, dow, dateStr, dateStr, dateStr, dateStr, dateStr)
+		rows, err := s.db.QueryContext(ctx, query, dateStr, dateStr, userID, model.AssignmentFamily, userID, model.RoleAdmin, dow, dateStr, dateStr, dateStr, dateStr, dateStr)
 		if err != nil {
 			return nil, err
 		}
 		for rows.Next() {
 			var sc model.ScheduledChore
 			var compID sql.NullInt64
+			var completedBy sql.NullInt64
 			var dayOfWeek sql.NullInt64
 			var specificDate sql.NullString
 			var completedAt sql.NullTime
@@ -555,7 +911,7 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 				&sc.PointsValue, &sc.MissedPenaltyValue, &sc.EstimatedMinutes, &reqApp, &reqPho, &sc.PhotoSource, &sc.AssignmentType, &sc.AvailableAt, &sc.DueBy,
 				&sc.ExpiryPenalty, &sc.ExpiryPenaltyValue,
 				&dayOfWeek, &specificDate,
-				&compID, &completedAt, &photoURL, &compStatus, &aiFeedback,
+				&compID, &completedBy, &completedAt, &photoURL, &compStatus, &aiFeedback,
 				&sc.TTSAudioURL, &siblingName); err != nil {
 				rows.Close()
 				return nil, err
@@ -564,6 +920,7 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 			sc.RequiresPhoto = reqPho == 1
 			sc.Date = dateStr
 			sc.Completed = compID.Valid
+			if completedBy.Valid { sc.CompletedBy=completedBy.Int64 }
 			if compID.Valid {
 				id := compID.Int64
 				sc.CompletionID = &id
@@ -988,7 +1345,6 @@ func (s *Store) ReverseAutoContributeReversals(ctx context.Context, completionID
 	return err
 }
 
-
 func (s *Store) GetSchedule(ctx context.Context, id int64) (*model.ChoreSchedule, error) {
 	cs := &model.ChoreSchedule{}
 	err := s.db.QueryRowContext(ctx,
@@ -1000,6 +1356,24 @@ func (s *Store) GetSchedule(ctx context.Context, id int64) (*model.ChoreSchedule
 	}
 	return cs, err
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // GetCompletionForScheduleDate returns the completion row for a schedule+date,
 // INCLUDING soft-deleted (uncompleted_at != NULL) rows so the complete-flow
@@ -1032,10 +1406,10 @@ func (s *Store) GetCompletion(ctx context.Context, id int64) (*model.ChoreComple
 }
 
 type PendingCompletionRow struct {
-	ID             int64     `json:"id"`
-	ChoreID        int64     `json:"chore_id"`
-	ChoreTitle     string    `json:"chore_title"`
-	ChildName      string    `json:"child_name"`
+	ID         int64  `json:"id"`
+	ChoreID    int64  `json:"chore_id"`
+	ChoreTitle string `json:"chore_title"`
+	ChildName  string `json:"child_name"`
 	// AssignedUserID is the user_id the underlying schedule is assigned to
 	// (i.e. the kid the chore "belongs to"), which may differ from the user
 	// who clicked "complete" (see ChildName) in sibling/FCFS scenarios.
@@ -1065,7 +1439,7 @@ type PendingCompletionRow struct {
 func (s *Store) ListPendingCompletions(ctx context.Context) ([]PendingCompletionRow, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT cc.id, c.id, c.title, u.name, cs.assigned_to, cc.photo_url, cc.completion_date, cc.completed_at,
-		       cc.completed_by, c.category, COALESCE(c.icon, ''), c.points_value,
+		       cc.completed_by, CASE WHEN c.is_home = 1 THEN 'home' ELSE c.category END, COALESCE(c.icon, ''), c.points_value,
 		       c.requires_photo, COALESCE(NULLIF(c.photo_source, ''), 'child'),
 		       cc.ai_feedback, cc.ai_confidence, cc.ai_complete
 		FROM chore_completions cc
@@ -1479,12 +1853,12 @@ func (s *Store) SetRewardAssignments(ctx context.Context, rewardID int64, assign
 
 // UpdateReward applies admin edits and, when the shareable flag transitions,
 // keeps existing kid commitments coherent:
-//   * shareable false → true: any active personal commits on this reward
+//   - shareable false → true: any active personal commits on this reward
 //     migrate into a new shared pool so siblings end up in the same pool
 //     instead of disconnected personal silos. Each kid's saved amount is
 //     preserved (it's derived from ledger rows referencing the commitment
 //     row, which we don't touch).
-//   * shareable true → false: refuse if there's an active shared pool with
+//   - shareable true → false: refuse if there's an active shared pool with
 //     contributors — the admin must redeem or cancel it first. Otherwise
 //     untying the pool from the reward leaves a half-state nobody can fix.
 func (s *Store) UpdateReward(ctx context.Context, r *model.Reward) error {
@@ -2641,7 +3015,7 @@ func (s *Store) RecalculateStreak(ctx context.Context, userID int64, today strin
 		// Filter to required + core only
 		var nonBonus []model.ScheduledChore
 		for _, c := range chores {
-			if c.Category != model.CategoryBonus {
+			if c.AssignmentType != model.AssignmentFamily && c.Category != model.CategoryHome && c.Category != model.CategoryBonus {
 				nonBonus = append(nonBonus, c)
 			}
 		}
@@ -2668,7 +3042,7 @@ func (s *Store) RecalculateStreak(ctx context.Context, userID int64, today strin
 	}
 	var todayNonBonus []model.ScheduledChore
 	for _, c := range todayChores {
-		if c.Category != model.CategoryBonus {
+		if c.AssignmentType != model.AssignmentFamily && c.Category != model.CategoryHome && c.Category != model.CategoryBonus {
 			todayNonBonus = append(todayNonBonus, c)
 		}
 	}
@@ -3502,7 +3876,7 @@ func (s *Store) RevokeAPIToken(ctx context.Context, id int64) error {
 // ListTriggersWithChores returns all chores that have at least one enabled trigger.
 func (s *Store) ListTriggersWithChores(ctx context.Context) ([]model.TriggerableChore, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT c.id, c.title, c.description, c.category, c.icon, c.points_value,
+		SELECT c.id, c.title, c.description, CASE WHEN c.is_home = 1 THEN 'home' ELSE c.category END, c.icon, c.points_value,
 		       ct.id, ct.uuid, ct.default_assigned_to, ct.default_due_by, ct.default_available_at,
 		       ct.enabled, ct.cooldown_minutes,
 		       COALESCE(u.name, '') AS default_assigned_name
@@ -3911,7 +4285,7 @@ type CategoryStatRow struct {
 func (s *Store) ReportCategoryBreakdown(ctx context.Context, startDate, endDate string) ([]CategoryStatRow, error) {
 	query := `
 		SELECT
-			c.category,
+			CASE WHEN c.is_home = 1 THEN 'home' ELSE c.category END,
 			COUNT(*) AS total_assigned,
 			SUM(CASE WHEN cc.status = 'approved' THEN 1 ELSE 0 END) AS total_completed
 		FROM chore_completions cc
@@ -3919,8 +4293,8 @@ func (s *Store) ReportCategoryBreakdown(ctx context.Context, startDate, endDate 
 		JOIN chores c ON c.id = cs.chore_id
 		WHERE cc.completion_date >= ? AND cc.completion_date <= ?
 		  AND cc.uncompleted_at IS NULL
-		GROUP BY c.category
-		ORDER BY c.category`
+		GROUP BY CASE WHEN c.is_home = 1 THEN 'home' ELSE c.category END
+		ORDER BY CASE WHEN c.is_home = 1 THEN 'home' ELSE c.category END`
 
 	rows, err := s.db.QueryContext(ctx, query, startDate, endDate)
 	if err != nil {

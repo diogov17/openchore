@@ -161,7 +161,7 @@ export interface Chore {
   id: number;
   title: string;
   description: string;
-  category: 'required' | 'core' | 'bonus';
+  category: 'required' | 'core' | 'bonus' | 'home';
   icon?: string;
   points_value: number;
   missed_penalty_value: number;
@@ -170,6 +170,26 @@ export interface Chore {
   requires_photo: boolean;
   photo_source?: 'child' | 'external' | 'both';
   tts_audio_url?: string;
+}
+
+export interface HomeBacklogItem {
+  chore_id: number;
+  completion_id?: number;
+  title: string;
+  description: string;
+  icon?: string;
+  points_value: number;
+  estimated_minutes?: number;
+  points_awarded?: number;
+  completed_by?: number | null;
+  completed_by_name?: string;
+  completed_by_color?: string;
+  completed_at?: string | null;
+  completion_date?: string | null;
+  assigned_to?: number | null;
+  assigned_to_name?: string;
+  assigned_to_all?: boolean;
+  history?: boolean;
 }
 
 export interface ChoreSchedule {
@@ -306,7 +326,7 @@ export interface ScheduledChore {
   chore_id: number;
   title: string;
   description: string;
-  category: 'required' | 'core' | 'bonus';
+  category: 'required' | 'core' | 'bonus' | 'home';
   icon?: string;
   points_value: number;
   missed_penalty_value: number;
@@ -323,6 +343,7 @@ export interface ScheduledChore {
   expired: boolean;
   completed: boolean;
   completion_id?: number;
+  completed_by?: number;
   completed_at?: string;
   photo_url?: string;
   date: string;
@@ -347,7 +368,7 @@ export interface PendingCompletion {
   completed_at: string;
   // Who clicked "complete" (child_name is their name).
   completed_by?: number;
-  category?: 'required' | 'core' | 'bonus';
+  category?: 'required' | 'core' | 'bonus' | 'home';
   icon?: string;
   points_value?: number;
   // Whether the chore needs a photo, and who takes it. A "child" chore

@@ -12,8 +12,8 @@ import styles from './pickers.module.css';
 const NOT_FOR_CHORES = new Set<IconName>(['back', 'chev', 'plus']);
 export const CHORE_ICON_NAMES: IconName[] = ICON_NAMES.filter((n) => !NOT_FOR_CHORES.has(n));
 
-export type ChoreCategory = 'required' | 'core' | 'bonus';
-export const CHORE_CATEGORIES: ChoreCategory[] = ['required', 'core', 'bonus'];
+export type ChoreCategory = 'required' | 'core' | 'bonus' | 'home';
+export const CHORE_CATEGORIES: ChoreCategory[] = ['required', 'core', 'bonus', 'home'];
 
 /** A person's colour key, or undefined for legacy / missing values. */
 export function personColor(u: Pick<User, 'color'> | undefined | null): PersonColor | undefined {
@@ -127,7 +127,7 @@ export function CategoryPicker({ value, onChange, label }: { value: ChoreCategor
                 className={styles.srOnly}
               />
               <CategoryMark cat={cat} />
-              <span>{t(`design.category.${cat}`)}</span>
+              <span>{t(c === 'home' ? 'design.category.home' : `design.category.${cat}`)}</span>
             </label>
           );
         })}
@@ -143,7 +143,7 @@ export function CategoryLabel({ category }: { category: string }) {
   return (
     <span className={styles.catLabel}>
       <CategoryMark cat={cat} />
-      {t(`design.category.${cat}`)}
+      {t(category === 'home' ? 'design.category.home' : `design.category.${cat}`)}
     </span>
   );
 }

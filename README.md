@@ -101,6 +101,7 @@ three tiers, and the tiers gate each other:
 | **Required** | Non-negotiable. Nothing else pays out until these are done. |
 | **Core** | The daily routine. Points are held **pending** until every required chore is complete. |
 | **Bonus** | Optional extras. Only awarded once required *and* core are finished. |
+| **Home** | Household tasks, separate from the Required, Core, and Bonus point gates. |
 
 That single rule stops the obvious exploit: cherry-picking the fun 15-point
 bonus chore and skipping the ones that matter.
@@ -204,6 +205,8 @@ skin.
 **Household**
 - Parent approval queue
 - Parents can take part too
+- Adult-shared chores; points go to whoever completes them
+- Unscheduled Home chores in a shared adult backlog, with completion history
 - PINs and OIDC single sign-on
 - Photo proof via QR handoff
 - Discord notifications

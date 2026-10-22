@@ -711,6 +711,46 @@ func (h *UserHandler) GetChores(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, chores)
 }
 
+// GetHomeChores returns the user's active Home backlog assignments for the
+// public read-only wall display.
+func (h *UserHandler) GetHomeChores(w http.ResponseWriter, r *http.Request) {
+	id, err := urlParamInt64(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+	dateStr := r.URL.Query().Get("date")
+	if dateStr == "" {
+		dateStr = time.Now().Format(model.DateFormat)
+	}
+	if _, err := time.Parse(model.DateFormat, dateStr); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid date format, use YYYY-MM-DD")
+		return
+	}
+	items, err := h.store.ListAssignedHomeChores(r.Context(), id, dateStr)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get Home chores")
+		return
+	}
+	if items == nil {
+		items = []store.HomeBacklogItem{}
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+// GetUnassignedHomeChores returns the open shared Home backlog for Ambient.
+func (h *UserHandler) GetUnassignedHomeChores(w http.ResponseWriter, r *http.Request) {
+	items, err := h.store.ListUnassignedHomeChores(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get unassigned Home chores")
+		return
+	}
+	if items == nil {
+		items = []store.HomeBacklogItem{}
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
 // isLastAdmin reports whether userID is the only admin profile.
 func (h *UserHandler) isLastAdmin(r *http.Request, userID int64) (bool, error) {
 	users, err := h.store.ListUsers(r.Context())

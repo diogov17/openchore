@@ -1,4 +1,4 @@
-import type { User, PersonColor, AuthSession, AuthProvider, LinkedIdentity, ScheduledChore, Chore, ChoreSchedule, PointsData, PointBalance, PendingCompletion, Reward, RewardRedemption, RewardCommitment, SharedCommitmentPool, RedemptionHistory, UserStreakData, StreakRewardItem, ChoreTrigger, Webhook, WebhookDelivery, UserDecayConfig, APIToken, AIStatus, AIReviewResult, AIConfig, AIConnectionUpdate, AdminAuthConfig, AuthProviderInput, SignInOptions } from './types';
+import type { User, PersonColor, AuthSession, AuthProvider, LinkedIdentity, ScheduledChore, Chore, ChoreSchedule, HomeBacklogItem, PointsData, PointBalance, PendingCompletion, Reward, RewardRedemption, RewardCommitment, SharedCommitmentPool, RedemptionHistory, UserStreakData, StreakRewardItem, ChoreTrigger, Webhook, WebhookDelivery, UserDecayConfig, APIToken, AIStatus, AIReviewResult, AIConfig, AIConnectionUpdate, AdminAuthConfig, AuthProviderInput, SignInOptions } from './types';
 
 const API_BASE = '/api';
 
@@ -184,6 +184,23 @@ export const api = {
   },
   chores: {
     list: () => fetchWithAuth<Chore[]>('/chores'),
+    listHomeBacklog: () => fetchWithAuth<HomeBacklogItem[]>('/home/backlog'),
+    listHomeBacklogHistory: () => fetchWithAuth<HomeBacklogItem[]>('/home/backlog/history'),
+    listMyAssignedHome: (date: string) => fetchWithAuth<HomeBacklogItem[]>(`/home/assigned?date=${encodeURIComponent(date)}`),
+    assignHomeBacklog: (id: number, userId: number | 'all') => fetchWithAuth<void>(`/home/backlog/${id}/assignment`, {
+      method: 'PUT', body: JSON.stringify(userId === 'all' ? { all: true } : { user_id: userId }),
+    }),
+    unassignHomeBacklog: (id: number) => fetchWithAuth<void>(`/home/backlog/${id}/assignment`, { method: 'DELETE' }),
+    completeAssignedHome: (id: number, completionDate: string) => fetchWithAuth<{ chore_id: number; completed_by: number }>(`/home/assigned/${id}/complete`, {
+      method: 'POST', body: JSON.stringify({ completion_date: completionDate }),
+    }),
+    uncompleteAssignedHome: (id: number) => fetchWithAuth<void>(`/home/assigned/${id}/complete`, { method: 'DELETE' }),
+    completeHomeBacklog: (id: number, completionDate: string, completedBy?: number) => fetchWithAuth<{ chore_id: number; completed_by: number }>(`/home/backlog/${id}/complete`, {
+      method: 'POST', body: JSON.stringify({ completion_date: completionDate, ...(completedBy ? { completed_by: completedBy } : {}) }),
+    }),
+    uncompleteHomeBacklog: (id: number, completedBy?: number) => fetchWithAuth(`/home/backlog/${id}/complete${completedBy ? `?completed_by=${completedBy}` : ''}`, { method: 'DELETE' }),
+    repeatHomeBacklog: (id: number) => fetchWithAuth<void>(`/home/backlog/${id}/repeat`, { method: 'POST' }),
+    uncompleteHomeBacklogCompletion: (id: number, completedBy?: number) => fetchWithAuth<void>(`/home/backlog/completions/${id}${completedBy ? `?completed_by=${completedBy}` : ''}`, { method: 'DELETE' }),
     get: (id: number) => fetchWithAuth<Chore>(`/chores/${id}`),
     create: (data: Partial<Chore>) => fetchWithAuth<Chore>('/chores', {
       method: 'POST',
@@ -194,13 +211,13 @@ export const api = {
       body: JSON.stringify(data),
     }),
     delete: (id: number) => fetchWithAuth(`/chores/${id}`, { method: 'DELETE' }),
-    complete: (scheduleId: number, date: string, photoUrl?: string, opts?: { skipPhoto?: boolean }) =>
+    complete: (scheduleId: number, date: string, photoUrl?: string, opts?: { skipPhoto?: boolean; completedBy?: number }) =>
       fetchWithAuth(`/schedules/${scheduleId}/complete`, {
         method: 'POST',
-        body: JSON.stringify({ completion_date: date, photo_url: photoUrl, skip_photo: opts?.skipPhoto || undefined }),
+        body: JSON.stringify({ completion_date: date, photo_url: photoUrl, skip_photo: opts?.skipPhoto || undefined, completed_by: opts?.completedBy }),
       }),
-    uncomplete: (scheduleId: number, date: string) =>
-      fetchWithAuth(`/schedules/${scheduleId}/complete?date=${date}`, {
+    uncomplete: (scheduleId: number, date: string, completedBy?: number) =>
+      fetchWithAuth(`/schedules/${scheduleId}/complete?date=${date}${completedBy ? `&completed_by=${completedBy}` : ''}`, {
         method: 'DELETE',
       }),
     upload: async (file: File) => {
