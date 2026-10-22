@@ -158,8 +158,8 @@ type loginRequest struct {
 
 // Login starts a session for a profile tapped on the login screen.
 //
-//   - Profile with a PIN: the PIN is required, unless PIN sign-in is turned
-//     off and the profile has a linked account, which it must use instead.
+//   - Profile with a PIN: uses the PIN when enabled, otherwise profile tap
+//     signs in unless the profile has a usable linked account.
 //   - Profile linked to OIDC and without a PIN: must use the provider.
 //   - Admin profile with no credential at all: must set a PIN first (using
 //     the legacy household passcode when one exists).
@@ -182,9 +182,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	ip := clientIP(r)
 
 	switch {
-	case user.HasPin && !h.oidc.pinSignInAllowed(r.Context(), user):
-		writeAuthError(w, http.StatusForbidden, authCodeOIDCRequired,
-			"this profile signs in with a linked account", map[string]any{"providers": user.AuthProviders})
+	case user.HasPin && !h.oidc.pinSignInAllowed(r.Context()):
+		if h.oidc.hasUsableProvider(user) {
+			writeAuthError(w, http.StatusForbidden, authCodeOIDCRequired,
+				"this profile signs in with a linked account", map[string]any{"providers": user.AuthProviders})
+			return
+		}
+		log.Printf("auth: user %d (%s) signed in without PIN from %s", user.ID, user.Name, ip)
+		h.startSession(w, r, user, SessionClaims{Method: SessionMethodTap})
 
 	case user.HasPin:
 		if d := h.limiter.retryAfter(user.ID); d > 0 {
@@ -217,11 +222,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		})
 		h.startSession(w, r, user, SessionClaims{Method: SessionMethodPin})
 
-	case len(user.AuthProviders) > 0:
+	case h.oidc.hasUsableProvider(user):
 		writeAuthError(w, http.StatusForbidden, authCodeOIDCRequired,
 			"this profile signs in with a linked account", map[string]any{"providers": user.AuthProviders})
 
 	case user.Role == model.RoleAdmin:
+		if !h.oidc.pinSignInAllowed(r.Context()) {
+			log.Printf("auth: admin user %d (%s) signed in without PIN from %s", user.ID, user.Name, ip)
+			h.startSession(w, r, user, SessionClaims{Method: SessionMethodTap})
+			return
+		}
 		h.claimAdminPin(w, r, user, req)
 
 	default:

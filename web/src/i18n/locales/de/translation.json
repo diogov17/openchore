@@ -567,8 +567,8 @@
           "startWall": "Wandanzeige zeigen",
           "startProvider": "Mit {{name}} anmelden",
           "startHelp": "Mit einem Anbieter anmelden bringt Leute auf ihrem eigenen Handy direkt zu ihren Aufgaben. Ein gemeinsames Tablet kann immer /login für die Familienauswahl oder /ambient für die Wandanzeige öffnen.",
-          "pinLabel": "PINs für Personen mit verknüpftem Konto erlauben",
-          "pinHelp": "Ausschalten, damit Personen mit verknüpftem Konto immer dieses verwenden. Wer kein verknüpftes Konto hat, meldet sich weiter mit seiner PIN an.",
+          "pinLabel": "PIN fuer geschuetzte Profile verlangen",
+          "pinHelp": "Deaktivieren, damit Personen durch Tippen auf ihr Profil angemeldet werden. Profile mit verknuepftem Anbieter verwenden weiterhin diesen Anbieter.",
           "fromConfig": "Auf dem Server in config.yaml oder der Umgebung festgelegt.",
           "saveButton": "Speichern",
           "saveSuccess": "Gespeichert.",
@@ -767,7 +767,6 @@
     "back": "Zurück",
     "language": "Sprache",
     "loading": "Wird geladen…",
-    "modal": {},
     "pinPad": {
       "deleteAriaLabel": "Löschen",
       "submitAriaLabel": "Fertig"

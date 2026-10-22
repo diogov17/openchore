@@ -567,8 +567,8 @@
           "startWall": "Show the wall display",
           "startProvider": "Sign in with {{name}}",
           "startHelp": "Signing in with a provider takes people on their own phones straight to their chores. A shared tablet can always open /login for the family picker or /ambient for the wall display.",
-          "pinLabel": "Allow PINs for people with a linked account",
-          "pinHelp": "Turn off so people who've linked an account always use it. Anyone without a linked account keeps signing in with their PIN.",
+          "pinLabel": "Require PINs for protected profiles",
+          "pinHelp": "Turn off to let people tap their profile to sign in. Profiles linked to an identity provider still use that provider.",
           "fromConfig": "Set in config.yaml or the environment on the server.",
           "saveButton": "Save",
           "saveSuccess": "Saved.",
@@ -767,7 +767,6 @@
     "back": "Back",
     "language": "Language",
     "loading": "Loading…",
-    "modal": {},
     "pinPad": {
       "deleteAriaLabel": "Delete",
       "submitAriaLabel": "Done"

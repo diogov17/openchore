@@ -67,8 +67,8 @@ func (t sessionTTL) view(def time.Duration) sessionTTLView {
 // signInOptions shape the sign-in screen. The login screen reads them
 // before anyone has signed in (GET /api/auth/options).
 type signInOptions struct {
-	// PinSignIn false means people with a linked account must use it; a
-	// profile with no usable linked account still signs in with its PIN.
+	// PinSignIn false allows profile-tap sign-in for profiles without a usable
+	// linked account. Profiles with a usable provider must sign in through it.
 	PinSignIn bool `json:"pin_sign_in"`
 	// StartPage is where a signed-out visitor to / lands: picker, wall or
 	// provider (with StartProvider set). /login and /ambient always work.
@@ -97,19 +97,20 @@ func (o *OIDCService) signInOptions(ctx context.Context) signInOptions {
 	return opts
 }
 
-// pinSignInAllowed reports whether user may sign in with their PIN. With
-// PIN sign-in turned off, someone who can use a linked account must; a
-// link to a provider that has since been removed doesn't count.
-func (o *OIDCService) pinSignInAllowed(ctx context.Context, user *model.User) bool {
-	if o.signInOptions(ctx).PinSignIn {
-		return true
-	}
+// pinSignInAllowed reports whether PINs are accepted for profile sign-in.
+func (o *OIDCService) pinSignInAllowed(ctx context.Context) bool {
+	return o.signInOptions(ctx).PinSignIn
+}
+
+// hasUsableProvider reports whether this profile can still sign in through
+// one of its linked OIDC providers.
+func (o *OIDCService) hasUsableProvider(user *model.User) bool {
 	for _, id := range user.AuthProviders {
 		if o.provider(id) != nil {
-			return false
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // SignInOptions returns the options the login screen needs (public).

@@ -25,8 +25,8 @@ type AuthConfig struct {
 	KioskSessionTTL string `yaml:"kiosk_session_ttl,omitempty"`
 	// PersonalSessionTTL bounds OIDC sessions on personal devices (default 720h).
 	PersonalSessionTTL string `yaml:"personal_session_ttl,omitempty"`
-	// PinSignIn set to false makes people with a linked account sign in
-	// with it instead of their PIN. Profiles without one keep their PIN.
+	// PinSignIn set to false allows profile-tap sign-in without a PIN.
+	// Profiles with a usable linked account must still use that provider.
 	PinSignIn *bool `yaml:"pin_sign_in,omitempty"`
 	// StartPage is where someone who opens OpenChore signed out lands:
 	// "picker" (the family picker, default), "wall" (the read-only wall
@@ -105,8 +105,8 @@ type UserConfig struct {
 	Role string `yaml:"role"`
 	// Pin is a 4-8 digit profile PIN, hashed on seed. Admin profiles need
 	// a PIN (or a linked account) to sign in.
-	Pin    string `yaml:"pin,omitempty"`
-	Age    int    `yaml:"age,omitempty"`
+	Pin string `yaml:"pin,omitempty"`
+	Age int    `yaml:"age,omitempty"`
 	// Theme is the person's skin: sunroom, blocks or tint. The legacy
 	// names default, quest, galaxy and forest are accepted and mapped.
 	Theme string `yaml:"theme,omitempty"`

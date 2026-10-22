@@ -1022,15 +1022,15 @@ func TestPinSignInOff(t *testing.T) {
 	if loc := newBrowser(t, env).get(fmt.Sprintf("/api/auth/oidc/pocket/start?user_id=%d", linked)); loc != "/" {
 		t.Fatalf("expected the linked account to sign in, got %s", loc)
 	}
-	// Someone without one keeps their PIN, so nobody is locked out.
-	env.login(t, pinOnly, "123456", http.StatusOK)
+	// Someone without a linked account can tap their profile when PINs are off.
+	env.login(t, pinOnly, "", http.StatusOK)
 
 	env.expectStatus(t, "PUT", "/api/admin/auth/options", map[string]any{"pin_sign_in": true}, adminHeaders(), http.StatusOK)
 	env.login(t, linked, "123456", http.StatusOK)
 }
 
-// A link to a provider that no longer exists doesn't count: the PIN stays
-// usable so the person isn't stranded.
+// A link to a provider that no longer exists doesn't block profile-tap
+// sign-in when PINs are off.
 func TestPinSignInOffIgnoresRemovedProvider(t *testing.T) {
 	env := setupTest(t)
 	idp := newFakeIdP(t)
@@ -1045,10 +1045,10 @@ func TestPinSignInOffIgnoresRemovedProvider(t *testing.T) {
 	b.expect("POST", "/api/auth/login", map[string]any{"user_id": kid, "pin": "4321"}, http.StatusOK)
 	b.get("/api/auth/oidc/pocket/start?mode=link")
 	env.expectStatus(t, "PUT", "/api/admin/auth/options", map[string]any{"pin_sign_in": false}, adminHeaders(), http.StatusOK)
-	env.login(t, kid, "4321", http.StatusForbidden)
+	env.login(t, kid, "", http.StatusForbidden)
 
 	env.expectStatus(t, "DELETE", "/api/admin/auth/providers/pocket", nil, adminHeaders(), http.StatusOK)
-	env.login(t, kid, "4321", http.StatusOK)
+	env.login(t, kid, "", http.StatusOK)
 }
 
 func TestSignInOptionsFromConfigAreReadOnly(t *testing.T) {

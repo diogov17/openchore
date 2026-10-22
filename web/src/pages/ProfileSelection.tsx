@@ -33,7 +33,7 @@ const AUTH_ERROR_KEYS: Record<string, string> = {
   linked_to_other_profile: 'profile.authError.linkedToOther',
 };
 
-const isLocked = (u: User) => u.has_pin || u.auth_providers.length > 0;
+const isLocked = (u: User, pinSignIn: boolean) => (pinSignIn && u.has_pin) || u.auth_providers.length > 0;
 
 /** A person's avatar: their photo when they have one, else their initial. */
 function PersonAvatar({ user, size = 'md', className }: { user: User; size?: AvatarSize; className?: string }) {
@@ -83,6 +83,7 @@ function DoorMeta({ user, today }: { user: User; today?: PersonToday }) {
 
 interface DoorProps {
   user: User;
+  pinSignIn: boolean;
   today?: PersonToday;
   now: number;
   disabled: boolean;
@@ -90,7 +91,7 @@ interface DoorProps {
 }
 
 /** One person's door: drawn in their own skin inside the House frame. */
-function Door({ user, today, now, disabled, onSelect }: DoorProps) {
+function Door({ user, pinSignIn, today, now, disabled, onSelect }: DoorProps) {
   const { t } = useTranslation();
   const skin = resolveSkin(user.theme, user.age);
   return (
@@ -107,7 +108,7 @@ function Door({ user, today, now, disabled, onSelect }: DoorProps) {
           >
             {user.name}
           </button>
-          {isLocked(user) && (
+          {isLocked(user, pinSignIn) && (
             <span className={styles.lock} role="img" aria-label={t('profile.pinProtected')}>
               <Icon name="lock" />
             </span>
@@ -214,8 +215,8 @@ export const ProfileSelection: React.FC = () => {
   // them), so only offer the ones that still exist.
   const usableProviders = (user: User) => user.auth_providers.filter(id => providers.some(p => p.id === id));
   const linkedProviders = pendingUser ? usableProviders(pendingUser) : [];
-  // With PIN sign-in turned off, someone who can use a linked account must.
-  const pinAllowed = (user: User) => signInOptions.pin_sign_in || usableProviders(user).length === 0;
+  // Profiles with a usable linked account still sign in through that provider.
+  const pinAllowed = () => signInOptions.pin_sign_in;
   const startProvider = signInOptions.start_page === 'provider'
     ? providers.find(p => p.id === signInOptions.start_provider)
     : undefined;
@@ -269,11 +270,11 @@ export const ProfileSelection: React.FC = () => {
     setError('');
     if (authError) setSearchParams({}, { replace: true });
     setPendingUser(user);
-    if (user.has_pin && pinAllowed(user)) {
+    if (user.has_pin && pinAllowed()) {
       setStep({ kind: 'pin' });
       return;
     }
-    if (user.auth_providers.length > 0) {
+    if (usableProviders(user).length > 0) {
       setStep({ kind: 'oidc' });
       return;
     }
@@ -442,7 +443,7 @@ export const ProfileSelection: React.FC = () => {
 
         <ul className={styles.doors} aria-label={t('entry.picker.doorsLabel')}>
           {kids.map(u => (
-            <Door key={u.id} user={u} today={today[u.id]} now={now} disabled={busy} onSelect={handleSelect} />
+            <Door key={u.id} user={u} pinSignIn={signInOptions.pin_sign_in} today={today[u.id]} now={now} disabled={busy} onSelect={handleSelect} />
           ))}
           {parents.length > 0 && (
             <GrownUpsDoor parents={parents} disabled={busy} onSelect={handleSelect} />
