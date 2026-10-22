@@ -45,6 +45,27 @@ services:
       api:
         condition: service_healthy
 
+  caddy:
+    image: caddy:2
+    container_name: openchore-caddy
+    restart: unless-stopped
+    environment:
+      - OPENCHORE_DOMAIN=${OPENCHORE_DOMAIN:-localhost}
+      - OPENGYM_DOMAIN=${OPENGYM_DOMAIN:-opengym.localhost}
+      - OPENGYM_UPSTREAM=${OPENGYM_UPSTREAM:-host.docker.internal:8095}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+
   # Optional: a local vision model for photo review, chore descriptions and
   # weekly summaries — Gemma 4 E4B on llama.cpp's server (~5 GB download on
   # first start, ~6 GB RAM). Enable with `docker compose --profile ai up -d`
@@ -91,5 +112,7 @@ services:
 
 volumes:
   openchore-data:
+  caddy-data:
+  caddy-config:
   llama-models:
   kokoro-data:

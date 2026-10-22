@@ -1,0 +1,9 @@
+{$OPENCHORE_DOMAIN} {
+    tls internal
+    reverse_proxy web:80
+}
+
+{$OPENGYM_DOMAIN:opengym.localhost} {
+    tls internal
+    reverse_proxy {$OPENGYM_UPSTREAM:host.docker.internal:8095}
+}
