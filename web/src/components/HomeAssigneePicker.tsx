@@ -52,6 +52,16 @@ export function HomeAssigneePicker({ users, assignedTo, assignedToAll = false, l
           >
             <span className={styles.dash} aria-hidden="true">—</span>
           </button>
+          <button
+            type="button"
+            className={`${styles.option} ${assignedToAll ? styles.selected : ''}`}
+            aria-label={allAdminsLabel}
+            title={allAdminsLabel}
+            aria-pressed={assignedToAll}
+            onClick={() => choose('all')}
+          >
+            <span className={styles.allMark} aria-hidden="true">A</span>
+          </button>
           {users.map(person => (
             <button
               type="button"

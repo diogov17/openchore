@@ -3811,3 +3811,59 @@ func TestChangingScheduleReminderAllowsPushToBeSentAgain(t *testing.T) {
 		t.Fatalf("delivery after UpdateScheduleReminder = %v, err=%v; want false", sent, err)
 	}
 }
+
+func TestHomeChoreAssignedToAllAdminsIsVisibleToAdminsAndAwardsFirstCompleter(t *testing.T) {
+	ctx := context.Background()
+	s := setupStore(t)
+	adminOne := createTestUser(t, s, "Admin One", "admin")
+	adminTwo := createTestUser(t, s, "Admin Two", "admin")
+	child := createTestUser(t, s, "Child", "child")
+	chore := createTestChore(t, s, "Take out recycling", 7, adminOne.ID)
+	chore.Category = model.CategoryHome
+	if err := s.UpdateChore(ctx, chore); err != nil {
+		t.Fatalf("UpdateChore to Home: %v", err)
+	}
+	if err := s.AssignHomeBacklogChore(ctx, chore.ID, 0, true); err != nil {
+		t.Fatalf("AssignHomeBacklogChore to all admins: %v", err)
+	}
+
+	for _, admin := range []*model.User{adminOne, adminTwo} {
+		items, err := s.ListAssignedHomeChores(ctx, admin.ID, "2026-10-19")
+		if err != nil {
+			t.Fatalf("ListAssignedHomeChores(%s): %v", admin.Name, err)
+		}
+		if len(items) != 1 || items[0].ChoreID != chore.ID || !items[0].AssignedToAll {
+			t.Errorf("%s assigned Home chores = %+v; want shared chore", admin.Name, items)
+		}
+	}
+	childItems, err := s.ListAssignedHomeChores(ctx, child.ID, "2026-10-19")
+	if err != nil {
+		t.Fatalf("ListAssignedHomeChores(child): %v", err)
+	}
+	if len(childItems) != 0 {
+		t.Errorf("child sees all-admin assignment: %+v", childItems)
+	}
+
+	if err := s.CompleteAssignedHomeBacklogChore(ctx, chore.ID, adminOne.ID, "2026-10-19"); err != nil {
+		t.Fatalf("first admin completion: %v", err)
+	}
+	if err := s.CompleteAssignedHomeBacklogChore(ctx, chore.ID, adminTwo.ID, "2026-10-19"); err == nil {
+		t.Fatal("second admin completion succeeded; want already-completed conflict")
+	}
+	if got, _ := s.GetPointBalance(ctx, adminOne.ID); got != 7 {
+		t.Errorf("first completer balance = %d, want 7", got)
+	}
+	if got, _ := s.GetPointBalance(ctx, adminTwo.ID); got != 0 {
+		t.Errorf("second admin balance = %d, want 0", got)
+	}
+
+	for _, admin := range []*model.User{adminOne, adminTwo} {
+		items, err := s.ListAssignedHomeChores(ctx, admin.ID, "2026-10-19")
+		if err != nil {
+			t.Fatalf("ListAssignedHomeChores after completion(%s): %v", admin.Name, err)
+		}
+		if len(items) != 1 || items[0].CompletedBy == nil || *items[0].CompletedBy != adminOne.ID {
+			t.Errorf("%s did not see the shared completion winner: %+v", admin.Name, items)
+		}
+	}
+}

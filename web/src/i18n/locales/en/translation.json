@@ -778,6 +778,8 @@
     "homeBacklog": {
       "assignError": "Could not assign this Home chore.",
       "assignLabel": "Assign {{chore}}",
+      "allAdmins": "All admins",
+      "assignedAll": "Assigned to all admins",
       "assignedTo": "Assigned to {{name}}",
       "complete": "Done",
       "completeError": "Could not complete this chore. It may already be completed or scheduled.",

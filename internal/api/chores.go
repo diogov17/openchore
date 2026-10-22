@@ -130,8 +130,8 @@ func (h *ChoreHandler) AssignHomeBacklog(w http.ResponseWriter, r *http.Request)
 		UserID int64 `json:"user_id"`
 		All    bool  `json:"all"`
 	}
-	if err := decodeJSON(r, &req); err != nil || req.All || req.UserID <= 0 {
-		writeError(w, http.StatusBadRequest, "a valid user_id is required")
+	if err := decodeJSON(r, &req); err != nil || (!req.All && req.UserID <= 0) {
+		writeError(w, http.StatusBadRequest, "a valid user_id or all=true is required")
 		return
 	}
 	if !req.All {
