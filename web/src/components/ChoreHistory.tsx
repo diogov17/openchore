@@ -22,6 +22,7 @@ export function ChoreHistory({ choreId }: { choreId: number }) {
           {e.person && <> · {e.person}</>}
           {e.points !== 0 && <> · {t('design.chore.points', { count: e.points })}</>}
           <div className={ui.sectionDesc}><time dateTime={e.at}>{new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', ...(['available', 'missed'].includes(e.event) ? { timeZone: 'UTC' } : { timeStyle: 'short' as const }) }).format(new Date(e.at))}</time></div>
+          {e.date && e.at.slice(0, 10) !== e.date && <div className={ui.sectionDesc}>{t('chores.recordedFor', { date: new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(`${e.date}T12:00:00`)) })}</div>}
         </li>)}
       </ol>}
   </section>;

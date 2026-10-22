@@ -96,9 +96,16 @@ describe('choreView', () => {
     expect(proof.needsPhotoProof).toBe(true);
   });
 
-  it('is read-only on other days', () => {
-    expect(choreView(chore({ date: '2026-09-23' }), ctx)).toMatchObject({ canToggle: false, meta: 'Not done' });
+  it('allows checking earlier days while keeping future days read-only', () => {
+    expect(choreView(chore({ date: '2026-09-23' }), ctx)).toMatchObject({ canToggle: true, meta: 'Not done' });
     expect(choreView(chore({ date: '2026-09-25', completed: false }), ctx).canToggle).toBe(false);
+  });
+  it('keeps photos and retry available on historical chores', () => {
+    expect(choreView(chore({ date: '2026-09-23', requires_photo: true, available: false, available_at: '23:59' }), ctx)).toMatchObject({ canToggle: true, photo: true });
+    expect(choreView(chore({ date: '2026-09-23', completed: true, completion_status: 'rejected' }), ctx)).toMatchObject({ canToggle: true, retry: true });
+  });
+  it('uses the historical day prerequisites for Bonus', () => {
+    expect(choreView(chore({ date: '2026-09-23', category: 'bonus' }), { ...ctx, bonusOpen: false })).toMatchObject({ canToggle: false, state: 'locked' });
   });
 });
 

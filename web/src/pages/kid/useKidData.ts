@@ -163,7 +163,7 @@ export function useKidData(user: User | null, opts: { week: boolean; rewards: bo
    * the photo sheet or the celebration should open.
    */
   const toggle = useCallback(async (chore: ScheduledChore, opts2: { retry?: boolean } = {}): Promise<ToggleResult> => {
-    if (chore.date !== today) return {};
+    if (chore.date > today) return {};
     // Double-tap guard: drop taps while a request for this chore is in flight.
     if (togglingRef.current.has(chore.schedule_id)) return {};
     setTogglingIds(prev => new Set(prev).add(chore.schedule_id));

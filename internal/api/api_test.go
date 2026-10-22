@@ -394,6 +394,9 @@ func TestScheduleAndComplete(t *testing.T) {
 }
 
 func TestTimeLockEnforcement(t *testing.T) {
+	if time.Now().Format("15:04") == "23:59" {
+		t.Skip("no later time available today")
+	}
 	env := setupTest(t)
 	env.createAdmin(t)
 
@@ -412,7 +415,7 @@ func TestTimeLockEnforcement(t *testing.T) {
 	// Schedule with available_at far in the future (23:59)
 	resp := env.request(t, "POST", "/api/chores/1/schedules", map[string]any{
 		"assigned_to":  2,
-		"day_of_week":  3,
+		"day_of_week":  int(time.Now().Weekday()),
 		"available_at": "23:59",
 	}, adminHeaders())
 	if resp.StatusCode != http.StatusCreated {
@@ -422,7 +425,7 @@ func TestTimeLockEnforcement(t *testing.T) {
 	// Try to complete — should be rejected due to time lock
 	resp = env.request(t, "POST", "/api/schedules/1/complete", map[string]any{
 		"completed_by":    2,
-		"completion_date": "2026-03-11",
+		"completion_date": time.Now().Format(model.DateFormat),
 	}, adminHeaders())
 	if resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("expected 422 for time-locked chore, got %d", resp.StatusCode)

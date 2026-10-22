@@ -188,6 +188,10 @@ func (h *ChoreHandler) CompleteAssignedHomeBacklog(w http.ResponseWriter, r *htt
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	if _, err := time.Parse(model.DateFormat, req.CompletionDate); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid completion date")
+		return
+	}
 	if err := h.store.CompleteAssignedHomeBacklogChore(r.Context(), choreID, user.ID, req.CompletionDate); err != nil {
 		if err == sql.ErrNoRows {
 			writeError(w, http.StatusNotFound, "assigned Home chore not found")
@@ -829,7 +833,7 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if !carried && schedule.AvailableAt != nil && *schedule.AvailableAt != "" {
+	if req.CompletionDate == now.Format(model.DateFormat) && !carried && schedule.AvailableAt != nil && *schedule.AvailableAt != "" {
 		if nowTime < *schedule.AvailableAt {
 			writeError(w, http.StatusUnprocessableEntity, "this chore isn't available until "+*schedule.AvailableAt)
 			return

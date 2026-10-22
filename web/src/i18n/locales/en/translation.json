@@ -1,5 +1,6 @@
 {
   "chores": {
+    "recordedFor": "For {{date}}",
     "add": "Add chore",
     "name": "Chore name",
     "placeholder": "What needs doing?",

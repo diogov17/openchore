@@ -31,7 +31,7 @@ export interface ChoreView {
   photo: boolean;
   /** Appended to the meta as "· 10 pts". */
   points?: number;
-  /** The check may be tapped (today, and not closed). */
+  /** The check may be tapped (today or earlier, and not closed). */
   canToggle: boolean;
   /** Override of the check's accessible name. */
   checkLabel?: string;
@@ -69,9 +69,10 @@ export function choreView(c: ScheduledChore, ctx: ChoreViewContext): ChoreView {
   const { t, now, lang } = ctx;
   const cat = catFromCategory(c.category);
   const isToday = c.date === ctx.today;
+  const canEditDate = c.date <= ctx.today;
   const photo = !!c.requires_photo && (c.photo_source ?? 'child') !== 'external';
   const base: ChoreView = {
-    cat, state: 'todo', urgent: false, photo, canToggle: isToday, retry: false, needsPhotoProof: false,
+    cat, state: 'todo', urgent: false, photo, canToggle: canEditDate, retry: false, needsPhotoProof: false,
   };
 
   const doneAt = c.completed_at ? new Date(c.completed_at) : null;
@@ -81,7 +82,7 @@ export function choreView(c: ScheduledChore, ctx: ChoreViewContext): ChoreView {
 
   // --- Finished in some way ---
   if (c.completed) {
-    base.needsPhotoProof = isToday && !!c.requires_photo &&
+    base.needsPhotoProof = canEditDate && !!c.requires_photo &&
       (c.photo_source === 'both' || c.photo_source === 'external') && !c.photo_url;
     if (c.completed_by_sibling) {
       return { ...base, state: 'done', meta: c.completed_by_name ? t('kid.chore.doneBy', { name: c.completed_by_name }) : doneAtLine };
@@ -104,10 +105,14 @@ export function choreView(c: ScheduledChore, ctx: ChoreViewContext): ChoreView {
     }
   }
 
-  // --- Another day (the Week tab): read-only ---
+  // --- Week: earlier days may be checked off against their original date.
+  // Today's clock does not close or delay a historical occurrence. ---
   if (!isToday) {
     const span = timeWindow(c, now, t, lang);
-    if (c.date < ctx.today) return { ...base, canToggle: false, meta: t('kid.chore.notDone') };
+    if (c.date < ctx.today) {
+      if (c.category === 'bonus' && !ctx.bonusOpen) return { ...base, state: 'locked', canToggle: false, photo: false };
+      return { ...base, meta: t('kid.chore.notDone'), points: c.points_value };
+    }
     return { ...base, canToggle: false, meta: span, points: c.points_value };
   }
 

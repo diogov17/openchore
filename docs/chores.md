@@ -38,3 +38,6 @@ when a chore repeats or its completion is undone.
 
 Week previews show chores on their scheduled dates, with carried chores in
 today's column and actual completions on the dates they were completed.
+Earlier days in Week can also be checked off when you forgot to record a chore.
+The completion belongs to the day selected in Week, rather than today. Future
+days remain read-only, and daily prerequisites use the selected day's chores.

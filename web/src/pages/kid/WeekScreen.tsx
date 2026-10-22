@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Icon } from '../../design';
 import type { ScheduledChore, User } from '../../types';
 import { localDateStr } from '../../utils';
-import { isDone, type ChoreView } from './choreView';
+import { choreView, gates, isDone, type ChoreView } from './choreView';
 import { ChoreGroups, Notice, PausedNotice } from './parts';
 import type { KidData } from './useKidData';
 import s from './kid.module.css';
@@ -72,6 +72,10 @@ export function WeekScreen({ user, data, topBar, viewOf, tts, onToggle, onPhoto,
   const lang = i18n.language;
   const day = dates.includes(selected) ? selected : data.today;
   const dayChores = all.filter(c => c.date === day);
+  const dayGates = gates(day < data.today ? dayChores.map(chore => ({ ...chore, available: true })) : dayChores);
+  const weekViewOf = (chore: ScheduledChore) => chore.date === data.today ? viewOf(chore) : choreView(chore, {
+    now: new Date(), today: data.today, ...dayGates, t, lang,
+  });
   const dayLabel = new Date(`${day}T00:00:00`).toLocaleDateString(lang, { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
@@ -133,13 +137,14 @@ export function WeekScreen({ user, data, topBar, viewOf, tts, onToggle, onPhoto,
       ) : (
         <ChoreGroups
           chores={dayChores}
-          viewOf={viewOf}
+          viewOf={weekViewOf}
           togglingIds={data.togglingIds}
           tts={tts}
           onToggle={onToggle}
           onPhoto={onPhoto}
           onSpeak={onSpeak}
           headingLevel="h3"
+          onChanged={() => void data.refreshAll()}
         />
       )}
     </div>

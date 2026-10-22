@@ -1,5 +1,6 @@
 {
   "chores": {
+    "recordedFor": "Für {{date}}",
     "add": "Aufgabe hinzufügen",
     "name": "Name der Aufgabe",
     "placeholder": "Was ist zu tun?",
@@ -1113,10 +1114,10 @@
       "readAloud": "Aufgaben vorlesen",
       "readAloudHint": "Jede Aufgabe bekommt einen Lautsprecher",
       "pushReminders": "Aufgabenerinnerungen auf diesem Handy",
-      "pushRemindersDevices_one": "Benachrichtigungen dieses Profils auf {{count}} Gerät aktiviert",
-      "pushRemindersDevices_other": "Benachrichtigungen dieses Profils auf {{count}} Geräten aktiviert",
-      "pushRemindersOtherDevices_one": "{{count}} weiteres Gerät ist registriert. Aktiviere Erinnerungen hier, um dieses Gerät hinzuzufügen.",
-      "pushRemindersOtherDevices_other": "{{count}} weitere Geräte sind registriert. Aktiviere Erinnerungen hier, um dieses Gerät hinzuzufügen.",
+      "pushRemindersDevices_one": "Benachrichtigungen dieses Profils auf {{count}} Ger\u00e4t aktiviert",
+      "pushRemindersDevices_other": "Benachrichtigungen dieses Profils auf {{count}} Ger\u00e4ten aktiviert",
+      "pushRemindersOtherDevices_one": "{{count}} weiteres Ger\u00e4t ist registriert. Aktiviere Erinnerungen hier, um dieses Ger\u00e4t hinzuzuf\u00fcgen.",
+      "pushRemindersOtherDevices_other": "{{count}} weitere Ger\u00e4te sind registriert. Aktiviere Erinnerungen hier, um dieses Ger\u00e4t hinzuzuf\u00fcgen.",
       "pushRemindersHint": "Benachrichtigungen für geplante Aufgaben erlauben",
       "pushError": "Benachrichtigungen konnten nicht aktiviert werden. Browser-Berechtigung und Servereinstellungen prüfen.",
       "pushUnavailable": "Öffne OpenChore über HTTPS in einem Browser mit Push-Benachrichtigungen.",
