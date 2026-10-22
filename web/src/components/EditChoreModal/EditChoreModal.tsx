@@ -8,6 +8,7 @@ import { Icon, catFromCategory } from '../../design';
 import { CategoryPicker, IconPicker } from '../admin/pickers';
 import { useAIStatus } from '../../hooks/useAIStatus';
 import styles from './EditChoreModal.module.css';
+import { ChoreHistory } from '../ChoreHistory';
 
 interface Props {
   chore: Chore;
@@ -24,6 +25,7 @@ interface Props {
 const EditChoreModal: React.FC<Props> = ({ chore, isOpen, onClose, onSaved, users, renderSchedules, renderTriggers }) => {
   const { t } = useTranslation();
   const [title, setTitle] = useState(chore.title);
+  const [resetDaily, setResetDaily] = useState(chore.reset_daily ?? false);
   const [description, setDescription] = useState(chore.description);
   const [category, setCategory] = useState(chore.category);
   const [points, setPoints] = useState(chore.points_value);
@@ -100,6 +102,7 @@ const EditChoreModal: React.FC<Props> = ({ chore, isOpen, onClose, onSaved, user
     try {
       await api.chores.update(chore.id, {
         title: title.trim(),
+        reset_daily: resetDaily,
         description: description.trim(),
         category,
         icon,
@@ -110,9 +113,8 @@ const EditChoreModal: React.FC<Props> = ({ chore, isOpen, onClose, onSaved, user
         requires_photo: requiresPhoto,
         photo_source: requiresPhoto ? photoSource : 'child',
       });
-      setSaved(true);
       onSaved();
-      setTimeout(() => setSaved(false), 2000);
+      onClose();
     } catch (e: unknown) {
       setError(e instanceof Error && e.message ? e.message : t('admin.editChore.saveError'));
     }
@@ -121,6 +123,7 @@ const EditChoreModal: React.FC<Props> = ({ chore, isOpen, onClose, onSaved, user
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t('admin.editChore.modalTitle', { title: chore.title })} maxWidth="640px">
+      <details style={{ marginBottom: 20 }}><summary>{t('chores.history')}</summary><ChoreHistory choreId={chore.id} /></details>
       {/* --- Chore details --- */}
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>{t('admin.editChore.sectionDetails')}</h3>
@@ -138,6 +141,14 @@ const EditChoreModal: React.FC<Props> = ({ chore, isOpen, onClose, onSaved, user
           </label>
 
           <CategoryPicker value={category} onChange={setCategory} label={t('admin.editChore.labelCategory')} />
+          <label className={styles.formGroup}>
+            <span className={styles.label}>{t('chores.behavior')}</span>
+            <select className={styles.input} value={resetDaily ? 'reset' : 'persist'} onChange={e => setResetDaily(e.target.value === 'reset')}>
+              <option value="persist">{t('chores.untilDone')}</option>
+              <option value="reset">{t('chores.startFresh')}</option>
+            </select>
+            <span>{t('chores.behaviorHelp')}</span>
+          </label>
 
           <div className={styles.formRow}>
             <label className={styles.formGroup}>

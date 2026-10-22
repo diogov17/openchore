@@ -158,10 +158,11 @@ export interface LinkedIdentity {
 }
 
 export interface Chore {
+  reset_daily?: boolean;
   id: number;
   title: string;
   description: string;
-  category: 'required' | 'core' | 'bonus' | 'home';
+  category: 'required' | 'core' | 'bonus' | 'home' | 'independent';
   icon?: string;
   points_value: number;
   missed_penalty_value: number;
@@ -323,11 +324,14 @@ export interface StreakRewardItem {
 }
 
 export interface ScheduledChore {
+  reset_daily?: boolean;
+  scheduled_for?: string;
+  completion_date?: string;
   schedule_id: number;
   chore_id: number;
   title: string;
   description: string;
-  category: 'required' | 'core' | 'bonus' | 'home';
+  category: 'required' | 'core' | 'bonus' | 'home' | 'independent';
   icon?: string;
   points_value: number;
   missed_penalty_value: number;
@@ -370,7 +374,7 @@ export interface PendingCompletion {
   completed_at: string;
   // Who clicked "complete" (child_name is their name).
   completed_by?: number;
-  category?: 'required' | 'core' | 'bonus' | 'home';
+  category?: 'required' | 'core' | 'bonus' | 'home' | 'independent';
   icon?: string;
   points_value?: number;
   // Whether the chore needs a photo, and who takes it. A "child" chore

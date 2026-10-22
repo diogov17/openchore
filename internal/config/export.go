@@ -61,6 +61,7 @@ func Export(ctx context.Context, s *store.Store, sections []string) (*Config, er
 		}
 		for _, c := range chores {
 			cc := ChoreConfig{
+				ResetDaily:       c.ResetDaily,
 				Title:            c.Title,
 				Icon:             c.Icon,
 				Category:         c.Category,
@@ -111,10 +112,10 @@ func Export(ctx context.Context, s *store.Store, sections []string) (*Config, er
 
 			for _, key := range keyOrder {
 				sc := ScheduleConfig{
-					AssignTo:    idToName[key.AssignedTo],
-					AvailableAt: key.AvailableAt,
-					DueBy:       key.DueBy,
-					Expiry:      key.ExpiryPenalty,
+					AssignTo:     idToName[key.AssignedTo],
+					AvailableAt:  key.AvailableAt,
+					DueBy:        key.DueBy,
+					Expiry:       key.ExpiryPenalty,
 					ExpiryPoints: key.ExpiryPenaltyValue,
 				}
 				if key.PointsMultiplier != 1.0 && key.PointsMultiplier != 0 {

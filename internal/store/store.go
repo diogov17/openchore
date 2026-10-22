@@ -360,14 +360,17 @@ func (s *Store) CreateChore(ctx context.Context, c *model.Chore) error {
 		photoSource = model.PhotoSourceChild
 	}
 	dbCategory := c.Category
+	if dbCategory == model.CategoryIndependent {
+		dbCategory = model.CategoryCore
+	}
 	if dbCategory == model.CategoryHome {
 		c.IsHome = true
 		dbCategory = model.CategoryCore
 	}
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO chores (title, description, category, is_home, icon, points_value, missed_penalty_value, estimated_minutes, requires_approval, requires_photo, photo_source, source, external_id, tts_audio_url, created_by)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		c.Title, c.Description, dbCategory, boolToInt(c.IsHome), c.Icon, c.PointsValue, c.MissedPenaltyValue, c.EstimatedMinutes, requiresApproval, requiresPhoto, photoSource, c.Source, c.ExternalID, c.TTSAudioURL, c.CreatedBy)
+		`INSERT INTO chores (title, description, category, is_home, icon, points_value, missed_penalty_value, estimated_minutes, requires_approval, requires_photo, photo_source, source, external_id, tts_audio_url, created_by, reset_daily, is_independent)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		c.Title, c.Description, dbCategory, boolToInt(c.IsHome), c.Icon, c.PointsValue, c.MissedPenaltyValue, c.EstimatedMinutes, requiresApproval, requiresPhoto, photoSource, c.Source, c.ExternalID, c.TTSAudioURL, c.CreatedBy, c.ResetDaily, c.Category == model.CategoryIndependent)
 	if err != nil {
 		return err
 	}
@@ -377,13 +380,16 @@ func (s *Store) CreateChore(ctx context.Context, c *model.Chore) error {
 
 func (s *Store) GetChore(ctx context.Context, id int64) (*model.Chore, error) {
 	c := &model.Chore{}
-	var reqApp, reqPho, isHome int
+	var reqApp, reqPho, isHome, independent int
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, title, description, category, is_home, icon, points_value, missed_penalty_value, estimated_minutes, requires_approval, requires_photo, photo_source, source, external_id, tts_audio_url, created_by, created_at
+		`SELECT id, title, description, category, is_home, icon, points_value, missed_penalty_value, estimated_minutes, requires_approval, requires_photo, photo_source, source, external_id, tts_audio_url, created_by, created_at, reset_daily, is_independent
 		 FROM chores WHERE id = ?`, id).
-		Scan(&c.ID, &c.Title, &c.Description, &c.Category, &isHome, &c.Icon, &c.PointsValue, &c.MissedPenaltyValue, &c.EstimatedMinutes, &reqApp, &reqPho, &c.PhotoSource, &c.Source, &c.ExternalID, &c.TTSAudioURL, &c.CreatedBy, &c.CreatedAt)
+		Scan(&c.ID, &c.Title, &c.Description, &c.Category, &isHome, &c.Icon, &c.PointsValue, &c.MissedPenaltyValue, &c.EstimatedMinutes, &reqApp, &reqPho, &c.PhotoSource, &c.Source, &c.ExternalID, &c.TTSAudioURL, &c.CreatedBy, &c.CreatedAt, &c.ResetDaily, &independent)
 	if err == sql.ErrNoRows {
 		return nil, nil
+	}
+	if independent == 1 {
+		c.Category = model.CategoryIndependent
 	}
 	c.RequiresApproval = reqApp == 1
 	c.RequiresPhoto = reqPho == 1
@@ -396,7 +402,7 @@ func (s *Store) GetChore(ctx context.Context, id int64) (*model.Chore, error) {
 
 func (s *Store) ListChores(ctx context.Context) ([]model.Chore, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, title, description, category, is_home, icon, points_value, missed_penalty_value, estimated_minutes, requires_approval, requires_photo, photo_source, source, external_id, tts_audio_url, created_by, created_at
+		`SELECT id, title, description, category, is_home, icon, points_value, missed_penalty_value, estimated_minutes, requires_approval, requires_photo, photo_source, source, external_id, tts_audio_url, created_by, created_at, reset_daily, is_independent
 		 FROM chores ORDER BY title`)
 	if err != nil {
 		return nil, err
@@ -405,9 +411,12 @@ func (s *Store) ListChores(ctx context.Context) ([]model.Chore, error) {
 	var chores []model.Chore
 	for rows.Next() {
 		var c model.Chore
-		var reqApp, reqPho, isHome int
-		if err := rows.Scan(&c.ID, &c.Title, &c.Description, &c.Category, &isHome, &c.Icon, &c.PointsValue, &c.MissedPenaltyValue, &c.EstimatedMinutes, &reqApp, &reqPho, &c.PhotoSource, &c.Source, &c.ExternalID, &c.TTSAudioURL, &c.CreatedBy, &c.CreatedAt); err != nil {
+		var reqApp, reqPho, isHome, independent int
+		if err := rows.Scan(&c.ID, &c.Title, &c.Description, &c.Category, &isHome, &c.Icon, &c.PointsValue, &c.MissedPenaltyValue, &c.EstimatedMinutes, &reqApp, &reqPho, &c.PhotoSource, &c.Source, &c.ExternalID, &c.TTSAudioURL, &c.CreatedBy, &c.CreatedAt, &c.ResetDaily, &independent); err != nil {
 			return nil, err
+		}
+		if independent == 1 {
+			c.Category = model.CategoryIndependent
 		}
 		c.RequiresApproval = reqApp == 1
 		c.RequiresPhoto = reqPho == 1
@@ -757,6 +766,9 @@ func (s *Store) UpdateChore(ctx context.Context, c *model.Chore) error {
 		photoSource = model.PhotoSourceChild
 	}
 	dbCategory := c.Category
+	if dbCategory == model.CategoryIndependent {
+		dbCategory = model.CategoryCore
+	}
 	if dbCategory == model.CategoryHome {
 		c.IsHome = true
 		dbCategory = model.CategoryCore
@@ -764,9 +776,9 @@ func (s *Store) UpdateChore(ctx context.Context, c *model.Chore) error {
 		c.IsHome = false
 	}
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE chores SET title=?, description=?, category=?, is_home=?, icon=?, points_value=?, missed_penalty_value=?, estimated_minutes=?, requires_approval=?, requires_photo=?, photo_source=?, source=?, external_id=?
+		`UPDATE chores SET title=?, description=?, category=?, is_home=?, icon=?, points_value=?, missed_penalty_value=?, estimated_minutes=?, requires_approval=?, requires_photo=?, photo_source=?, source=?, external_id=?, reset_daily=?, is_independent=?
 		 WHERE id=?`,
-		c.Title, c.Description, dbCategory, boolToInt(c.IsHome), c.Icon, c.PointsValue, c.MissedPenaltyValue, c.EstimatedMinutes, requiresApproval, requiresPhoto, photoSource, c.Source, c.ExternalID, c.ID)
+		c.Title, c.Description, dbCategory, boolToInt(c.IsHome), c.Icon, c.PointsValue, c.MissedPenaltyValue, c.EstimatedMinutes, requiresApproval, requiresPhoto, photoSource, c.Source, c.ExternalID, c.ResetDaily, c.Category == model.CategoryIndependent, c.ID)
 	return err
 }
 
@@ -874,9 +886,9 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 
 	query := `
 		SELECT
-			cs.id, c.id, c.title, c.description, CASE WHEN c.is_home=1 THEN 'home' ELSE c.category END, c.icon, c.points_value, c.missed_penalty_value, c.estimated_minutes, c.requires_approval, c.requires_photo, c.photo_source,
+			cs.id, c.id, c.title, c.description, CASE WHEN c.is_home = 1 THEN 'home' WHEN c.is_independent=1 THEN 'independent' ELSE c.category END, c.icon, c.points_value, c.missed_penalty_value, c.estimated_minutes, c.requires_approval, c.requires_photo, c.photo_source,
 			cs.assignment_type, cs.available_at, cs.due_by, cs.expiry_penalty, cs.expiry_penalty_value,
-			cs.day_of_week, cs.specific_date, cs.reminder_at,
+			cs.day_of_week, cs.specific_date, cs.reminder_at, c.reset_daily, cc.completion_date,
 			cc.id, cc.completed_by, cc.completed_at, cc.photo_url, cc.status, cc.ai_feedback,
 			c.tts_audio_url,
 			(SELECT u2.name FROM chore_completions cc2
@@ -892,7 +904,7 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 		JOIN chores c ON c.id = cs.chore_id
 		LEFT JOIN chore_completions cc ON cc.id = (
 				SELECT cc3.id FROM chore_completions cc3
-				WHERE cc3.chore_schedule_id = cs.id AND cc3.completion_date = ?
+				WHERE cc3.chore_schedule_id = cs.id AND (cc3.completion_date = ? OR (? AND c.reset_daily=0 AND cc3.status='pending'))
 				  AND cc3.uncompleted_at IS NULL
 				ORDER BY CASE cc3.status
 					WHEN 'approved' THEN 1
@@ -902,8 +914,10 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 				END
 				LIMIT 1
 			)
-		WHERE (cs.assigned_to = ? OR (cs.assignment_type = ? AND EXISTS (SELECT 1 FROM users WHERE id=? AND role=?)))
-		  AND (
+		WHERE (cs.assigned_to = ? OR (cs.assignment_type = ? AND EXISTS (
+			SELECT 1 FROM users viewer WHERE viewer.id = ? AND viewer.role = ?
+		)))
+		  AND (cc.id IS NOT NULL OR (? AND c.reset_daily=0 AND cs.id IN (%s)) OR ((c.reset_daily=1 OR ?) AND (
 			(cs.day_of_week = ? AND cs.specific_date IS NULL AND cs.recurrence_interval IS NULL)
 			OR (cs.specific_date = ? AND cs.recurrence_interval IS NULL)
 			OR (cs.recurrence_interval IS NOT NULL AND cs.recurrence_start IS NOT NULL
@@ -911,8 +925,8 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 				AND CAST((julianday(?) - julianday(cs.recurrence_start)) AS INTEGER) % cs.recurrence_interval = 0)
 		  )
 		  AND (cs.start_date IS NULL OR cs.start_date <= ?)
-		  AND (cs.end_date IS NULL OR cs.end_date >= ?)
-		ORDER BY cs.available_at NULLS FIRST, c.category, c.title`
+		  AND (cs.end_date IS NULL OR cs.end_date >= ?)))
+		ORDER BY cs.available_at NULLS FIRST, c.is_home, c.category, c.title`
 
 	var results []model.ScheduledChore
 	currentTime := now.Format("15:04")
@@ -923,12 +937,25 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 			return nil, fmt.Errorf("invalid date %s: %w", dateStr, err)
 		}
 		dow := int(t.Weekday())
-		rows, err := s.db.QueryContext(ctx, query, dateStr, dateStr, userID, model.AssignmentFamily, userID, model.RoleAdmin, dow, dateStr, dateStr, dateStr, dateStr, dateStr)
+		ids, err := s.persistentScheduleIDs(ctx, userID, dateStr)
+		if err != nil {
+			return nil, err
+		}
+		idSQL := "0"
+		for id := range ids {
+			idSQL += fmt.Sprintf(",%d", id)
+		}
+		dateQuery := strings.Replace(query, "%s", idSQL, 1)
+		// Preview future schedules once on their scheduled dates; today's
+		// column also includes unfinished work. Actual completions always stay.
+		carryView := len(dates) == 1 || dateStr == now.Format(model.DateFormat)
+		rows, err := s.db.QueryContext(ctx, dateQuery, dateStr, dateStr, carryView, userID, model.AssignmentFamily, userID, model.RoleAdmin, carryView, !carryView, dow, dateStr, dateStr, dateStr, dateStr, dateStr)
 		if err != nil {
 			return nil, err
 		}
 		for rows.Next() {
 			var sc model.ScheduledChore
+			var completionDate sql.NullString
 			var compID sql.NullInt64
 			var completedBy sql.NullInt64
 			var dayOfWeek sql.NullInt64
@@ -942,7 +969,7 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 			if err := rows.Scan(&sc.ScheduleID, &sc.ChoreID, &sc.Title, &sc.Description, &sc.Category, &sc.Icon,
 				&sc.PointsValue, &sc.MissedPenaltyValue, &sc.EstimatedMinutes, &reqApp, &reqPho, &sc.PhotoSource, &sc.AssignmentType, &sc.AvailableAt, &sc.DueBy,
 				&sc.ExpiryPenalty, &sc.ExpiryPenaltyValue,
-				&dayOfWeek, &specificDate, &sc.ReminderAt,
+				&dayOfWeek, &specificDate, &sc.ReminderAt, &sc.ResetDaily, &completionDate,
 				&compID, &completedBy, &completedAt, &photoURL, &compStatus, &aiFeedback,
 				&sc.TTSAudioURL, &siblingName); err != nil {
 				rows.Close()
@@ -951,8 +978,17 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 			sc.RequiresApproval = reqApp == 1
 			sc.RequiresPhoto = reqPho == 1
 			sc.Date = dateStr
+			sc.ScheduledFor = ids[sc.ScheduleID]
+			if !carryView {
+				sc.ScheduledFor = dateStr
+			}
+			if completionDate.Valid {
+				sc.CompletionDate = normalizeDate(completionDate.String)
+			}
 			sc.Completed = compID.Valid
-			if completedBy.Valid { sc.CompletedBy=completedBy.Int64 }
+			if completedBy.Valid {
+				sc.CompletedBy = completedBy.Int64
+			}
 			if compID.Valid {
 				id := compID.Int64
 				sc.CompletionID = &id
@@ -988,6 +1024,13 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 				if dateStr == now.Format(model.DateFormat) && currentTime > *sc.DueBy {
 					sc.Expired = true
 				}
+			}
+			if !sc.ResetDaily && sc.ScheduledFor < dateStr {
+				sc.Available = true
+				sc.Expired = false
+			}
+			if !sc.ResetDaily && sc.ExpiryPenalty == model.ExpiryBlock {
+				sc.Expired = false
 			}
 			results = append(results, sc)
 		}
@@ -1531,7 +1574,7 @@ type PendingCompletionRow struct {
 func (s *Store) ListPendingCompletions(ctx context.Context) ([]PendingCompletionRow, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT cc.id, c.id, c.title, u.name, cs.assigned_to, cc.photo_url, cc.completion_date, cc.completed_at,
-		       cc.completed_by, CASE WHEN c.is_home = 1 THEN 'home' ELSE c.category END, COALESCE(c.icon, ''), c.points_value,
+		       cc.completed_by, CASE WHEN c.is_home = 1 THEN 'home' WHEN c.is_independent=1 THEN 'independent' ELSE c.category END, COALESCE(c.icon, ''), c.points_value,
 		       c.requires_photo, COALESCE(NULLIF(c.photo_source, ''), 'child'),
 		       cc.ai_feedback, cc.ai_confidence, cc.ai_complete
 		FROM chore_completions cc
@@ -3107,7 +3150,7 @@ func (s *Store) RecalculateStreak(ctx context.Context, userID int64, today strin
 		// Filter to required + core only
 		var nonBonus []model.ScheduledChore
 		for _, c := range chores {
-			if c.AssignmentType != model.AssignmentFamily && c.Category != model.CategoryHome && c.Category != model.CategoryBonus {
+			if c.AssignmentType != model.AssignmentFamily && c.Category != model.CategoryHome && c.Category != model.CategoryIndependent && c.Category != model.CategoryBonus {
 				nonBonus = append(nonBonus, c)
 			}
 		}
@@ -3134,7 +3177,7 @@ func (s *Store) RecalculateStreak(ctx context.Context, userID int64, today strin
 	}
 	var todayNonBonus []model.ScheduledChore
 	for _, c := range todayChores {
-		if c.AssignmentType != model.AssignmentFamily && c.Category != model.CategoryHome && c.Category != model.CategoryBonus {
+		if c.AssignmentType != model.AssignmentFamily && c.Category != model.CategoryHome && c.Category != model.CategoryIndependent && c.Category != model.CategoryBonus {
 			todayNonBonus = append(todayNonBonus, c)
 		}
 	}
@@ -3968,7 +4011,7 @@ func (s *Store) RevokeAPIToken(ctx context.Context, id int64) error {
 // ListTriggersWithChores returns all chores that have at least one enabled trigger.
 func (s *Store) ListTriggersWithChores(ctx context.Context) ([]model.TriggerableChore, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT c.id, c.title, c.description, CASE WHEN c.is_home = 1 THEN 'home' ELSE c.category END, c.icon, c.points_value,
+		SELECT c.id, c.title, c.description, CASE WHEN c.is_home = 1 THEN 'home' WHEN c.is_independent=1 THEN 'independent' ELSE c.category END, c.icon, c.points_value,
 		       ct.id, ct.uuid, ct.default_assigned_to, ct.default_due_by, ct.default_available_at,
 		       ct.enabled, ct.cooldown_minutes,
 		       COALESCE(u.name, '') AS default_assigned_name
@@ -4177,7 +4220,7 @@ func (s *Store) GetExpiredChores(ctx context.Context, date string, currentTime s
 		  AND cs.due_by != ''
 		  AND cs.due_by <= ?
 		  AND cc.id IS NULL
-		  AND (
+		  AND c.reset_daily=1 AND (
 			(cs.day_of_week = ? AND cs.specific_date IS NULL AND cs.recurrence_interval IS NULL)
 			OR cs.specific_date = ?
 			OR (cs.recurrence_interval IS NOT NULL AND cs.recurrence_start IS NOT NULL
@@ -4377,7 +4420,7 @@ type CategoryStatRow struct {
 func (s *Store) ReportCategoryBreakdown(ctx context.Context, startDate, endDate string) ([]CategoryStatRow, error) {
 	query := `
 		SELECT
-			CASE WHEN c.is_home = 1 THEN 'home' ELSE c.category END,
+			CASE WHEN c.is_home = 1 THEN 'home' WHEN c.is_independent=1 THEN 'independent' ELSE c.category END,
 			COUNT(*) AS total_assigned,
 			SUM(CASE WHEN cc.status = 'approved' THEN 1 ELSE 0 END) AS total_completed
 		FROM chore_completions cc
@@ -4385,8 +4428,8 @@ func (s *Store) ReportCategoryBreakdown(ctx context.Context, startDate, endDate 
 		JOIN chores c ON c.id = cs.chore_id
 		WHERE cc.completion_date >= ? AND cc.completion_date <= ?
 		  AND cc.uncompleted_at IS NULL
-		GROUP BY CASE WHEN c.is_home = 1 THEN 'home' ELSE c.category END
-		ORDER BY CASE WHEN c.is_home = 1 THEN 'home' ELSE c.category END`
+		GROUP BY CASE WHEN c.is_home = 1 THEN 'home' WHEN c.is_independent=1 THEN 'independent' ELSE c.category END
+		ORDER BY CASE WHEN c.is_home = 1 THEN 'home' WHEN c.is_independent=1 THEN 'independent' ELSE c.category END`
 
 	rows, err := s.db.QueryContext(ctx, query, startDate, endDate)
 	if err != nil {

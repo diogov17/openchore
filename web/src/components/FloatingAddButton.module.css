@@ -1,0 +1,23 @@
+.button {
+  position: fixed;
+  right: max(var(--space-5), env(safe-area-inset-right, 0px));
+  bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--lift-lg);
+  cursor: pointer;
+}
+
+.button svg {
+  width: 26px;
+  height: 26px;
+  stroke-width: 2.25;
+}

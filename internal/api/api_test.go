@@ -478,12 +478,14 @@ func TestGetUserChoresDaily(t *testing.T) {
 
 	// Create two chores
 	env.request(t, "POST", "/api/chores", map[string]any{
-		"title":    "Chore A",
-		"category": "required",
+		"title":       "Chore A",
+		"reset_daily": true,
+		"category":    "required",
 	}, adminHeaders())
 	env.request(t, "POST", "/api/chores", map[string]any{
-		"title":    "Chore B",
-		"category": "bonus",
+		"title":       "Chore B",
+		"reset_daily": true,
+		"category":    "bonus",
 	}, adminHeaders())
 
 	// Schedule Chore A for Wednesday (2026-03-11 is a Wednesday, day_of_week=3)
@@ -1600,7 +1602,8 @@ func TestExpiryPenaltyBlock(t *testing.T) {
 	kidID := env.createChild(t, "Kid")
 
 	env.request(t, "POST", "/api/chores", map[string]any{
-		"title": "Test", "category": "core", "points_value": 10,
+		"title": "Test", "reset_daily": true,
+		"category": "core", "points_value": 10,
 	}, adminHeaders())
 
 	// Schedule with due_by in the past (00:01) and block penalty
@@ -3325,8 +3328,9 @@ func TestOneOffScheduleAppearsOnCorrectDate(t *testing.T) {
 	kidID := env.createChild(t, "Kid")
 
 	env.request(t, "POST", "/api/chores", map[string]any{
-		"title":    "Special task",
-		"category": "bonus",
+		"title":       "Special task",
+		"reset_daily": true,
+		"category":    "bonus",
 	}, adminHeaders())
 
 	// Schedule as one-off on 2026-04-15
@@ -4767,7 +4771,7 @@ func TestPointsDecayReachesGoalSavings(t *testing.T) {
 	// A required chore was on yesterday's list and never got done.
 	yesterday := time.Now().AddDate(0, 0, -1)
 	env.expectStatus(t, "POST", "/api/chores", map[string]any{
-		"title": "Take out the trash", "category": "required", "points_value": 10,
+		"reset_daily": true, "title": "Take out the trash", "category": "required", "points_value": 10,
 	}, adminHeaders(), http.StatusCreated)
 	env.expectStatus(t, "POST", "/api/chores/1/schedules", map[string]any{
 		"assigned_to": kidID,

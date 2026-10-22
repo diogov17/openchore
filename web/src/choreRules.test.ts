@@ -17,6 +17,9 @@ describe('isChoreDone', () => {
 });
 
 describe('dayGates', () => {
+  it('keeps independent chores out of daily prerequisites', () => {
+    expect(dayGates([c('independent'), c('bonus')])).toEqual({ requiredDone: true, bonusOpen: true });
+  });
   it('opens Bonus when every available Must do and Every day chore is done', () => {
     expect(dayGates([c('required', done), c('core', done), c('bonus')])).toEqual({ requiredDone: true, bonusOpen: true });
     expect(dayGates([c('required', done), c('core'), c('bonus')])).toEqual({ requiredDone: true, bonusOpen: false });

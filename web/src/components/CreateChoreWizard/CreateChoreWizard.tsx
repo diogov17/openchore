@@ -13,9 +13,10 @@ import { CategoryLabel, CategoryPicker, IconPicker, IconWell, PersonName, Person
 import styles from './CreateChoreWizard.module.css';
 
 interface ChoreData {
+  resetDaily: boolean;
   title: string;
   description: string;
-  category: 'required' | 'core' | 'bonus' | 'home';
+  category: 'required' | 'core' | 'bonus' | 'home' | 'independent';
   icon: string;
   points: number;
   missedPenalty: number;
@@ -53,6 +54,7 @@ const WEEKDAYS = [1, 2, 3, 4, 5];
 const WEEKENDS = [0, 6];
 
 const defaultChoreData: ChoreData = {
+  resetDaily: false,
   title: '', description: '', category: 'core', icon: '', points: 5, missedPenalty: 0,
   estimatedMinutes: 5, requiresApproval: false, requiresPhoto: false, photoSource: 'child',
 };
@@ -145,6 +147,7 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
         title: chore.title.trim(),
         description: chore.description.trim(),
         category: chore.category,
+        reset_daily: chore.resetDaily,
         icon: chore.icon,
         points_value: chore.points,
         missed_penalty_value: chore.missedPenalty || 0,
@@ -237,6 +240,14 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
       </div>
 
       <CategoryPicker value={chore.category} onChange={category => setChore(c => ({ ...c, category }))} label={t('admin.createChore.field.categoryLabel')} />
+      <label className={styles.formGroup}>
+        <span className={styles.label}>{t('chores.behavior')}</span>
+        <select className={styles.input} value={chore.resetDaily ? 'reset' : 'persist'} onChange={e => setChore(c => ({ ...c, resetDaily: e.target.value === 'reset' }))}>
+          <option value="persist">{t('chores.untilDone')}</option>
+          <option value="reset">{t('chores.startFresh')}</option>
+        </select>
+        <span className={styles.helpText}>{t('chores.behaviorHelp')}</span>
+      </label>
 
       <div className={styles.formRow}>
         <label className={styles.formGroup}>

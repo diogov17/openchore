@@ -188,10 +188,6 @@ func (h *ChoreHandler) CompleteAssignedHomeBacklog(w http.ResponseWriter, r *htt
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if _, err := time.Parse(model.DateFormat, req.CompletionDate); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid completion date")
-		return
-	}
 	if err := h.store.CompleteAssignedHomeBacklogChore(r.Context(), choreID, user.ID, req.CompletionDate); err != nil {
 		if err == sql.ErrNoRows {
 			writeError(w, http.StatusNotFound, "assigned Home chore not found")
@@ -338,6 +334,7 @@ func (h *ChoreHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 type createChoreRequest struct {
+	ResetDaily  *bool  `json:"reset_daily"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Category    string `json:"category"`
@@ -366,7 +363,7 @@ func (h *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.Category == "" {
 		req.Category = model.CategoryCore
 	}
-	if req.Category != model.CategoryRequired && req.Category != model.CategoryCore && req.Category != model.CategoryBonus && req.Category != model.CategoryHome {
+	if req.Category != model.CategoryRequired && req.Category != model.CategoryCore && req.Category != model.CategoryBonus && req.Category != model.CategoryHome && req.Category != model.CategoryIndependent {
 		writeError(w, http.StatusBadRequest, "category must be required, core, bonus, or home")
 		return
 	}
@@ -382,6 +379,7 @@ func (h *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	user := UserFromContext(r.Context())
 	chore := &model.Chore{
+		ResetDaily:         req.ResetDaily != nil && *req.ResetDaily,
 		Title:              req.Title,
 		Description:        req.Description,
 		Category:           req.Category,
@@ -428,6 +426,9 @@ func (h *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	if req.ResetDaily != nil {
+		existing.ResetDaily = *req.ResetDaily
+	}
 	spokenBefore := tts.SpokenText(existing)
 	if req.Title != "" {
 		existing.Title = req.Title
@@ -436,7 +437,7 @@ func (h *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		existing.Description = req.Description
 	}
 	if req.Category != "" {
-		if req.Category != model.CategoryRequired && req.Category != model.CategoryCore && req.Category != model.CategoryBonus && req.Category != model.CategoryHome {
+		if req.Category != model.CategoryRequired && req.Category != model.CategoryCore && req.Category != model.CategoryBonus && req.Category != model.CategoryHome && req.Category != model.CategoryIndependent {
 			writeError(w, http.StatusBadRequest, "category must be required, core, bonus, or home")
 			return
 		}
@@ -760,6 +761,10 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 	if req.CompletionDate == "" {
 		req.CompletionDate = time.Now().Format(model.DateFormat)
 	}
+	if _, err := time.Parse(model.DateFormat, req.CompletionDate); err != nil {
+		writeError(w, http.StatusBadRequest, "completion date must use YYYY-MM-DD")
+		return
+	}
 
 	// Get the schedule to check time lock
 	schedule, err := h.store.GetSchedule(r.Context(), scheduleID)
@@ -799,7 +804,32 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 	// Enforce time lock
 	now := time.Now()
 	nowTime := now.Format("15:04")
-	if schedule.AvailableAt != nil && *schedule.AvailableAt != "" {
+	scheduledChore, choreErr := h.store.GetChore(r.Context(), schedule.ChoreID)
+	if choreErr != nil || scheduledChore == nil {
+		writeError(w, 500, "could not load task")
+		return
+	}
+	carried := false
+	if !scheduledChore.ResetDaily {
+		offered, err := h.store.GetScheduledChoresForUser(r.Context(), schedule.AssignedTo, []string{req.CompletionDate}, now)
+		if err != nil {
+			writeError(w, 500, "could not load task occurrence")
+			return
+		}
+		found := false
+		for _, c := range offered {
+			if c.ScheduleID == scheduleID {
+				found = true
+				carried = c.ScheduledFor < req.CompletionDate
+				break
+			}
+		}
+		if !found {
+			writeError(w, 409, "this task has no open occurrence on that date")
+			return
+		}
+	}
+	if !carried && schedule.AvailableAt != nil && *schedule.AvailableAt != "" {
 		if nowTime < *schedule.AvailableAt {
 			writeError(w, http.StatusUnprocessableEntity, "this chore isn't available until "+*schedule.AvailableAt)
 			return
@@ -808,14 +838,14 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 
 	// Check expiry
 	isExpired := false
-	if schedule.DueBy != nil && *schedule.DueBy != "" && req.CompletionDate == now.Format(model.DateFormat) {
+	if !carried && schedule.DueBy != nil && *schedule.DueBy != "" && req.CompletionDate == now.Format(model.DateFormat) {
 		if nowTime > *schedule.DueBy {
 			isExpired = true
 		}
 	}
 
 	// Enforce expiry penalty
-	if isExpired && schedule.ExpiryPenalty == model.ExpiryBlock {
+	if isExpired && schedule.ExpiryPenalty == model.ExpiryBlock && scheduledChore.ResetDaily {
 		writeError(w, http.StatusUnprocessableEntity, "this chore has expired and can no longer be completed")
 		return
 	}

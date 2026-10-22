@@ -117,6 +117,7 @@ type UserConfig struct {
 }
 
 type ChoreConfig struct {
+	ResetDaily       bool             `yaml:"reset_daily,omitempty"`
 	Title            string           `yaml:"title"`
 	Icon             string           `yaml:"icon,omitempty"`
 	Category         string           `yaml:"category"`

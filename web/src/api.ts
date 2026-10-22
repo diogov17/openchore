@@ -195,6 +195,9 @@ export const api = {
       fetchWithAuth<ScheduledChore[]>(`/users/${id}/chores?view=${view}&date=${date}`),
   },
   chores: {
+    quickAdd: (data: { title: string; description?: string; assigned_to?: number; category?: Chore['category']; points_value?: number; reset_daily?: boolean; date?: string; interval?: number; requires_approval?: boolean; requires_photo?: boolean }) =>
+      fetchWithAuth<Chore>('/chores/quick', { method: 'POST', body: JSON.stringify(data) }),
+    history: (id: number) => fetchWithAuth<{ event: string; at: string; person?: string; points: number; date?: string }[]>(`/chores/${id}/history`),
     list: () => fetchWithAuth<Chore[]>('/chores'),
     listHomeBacklog: () => fetchWithAuth<HomeBacklogItem[]>('/home/backlog'),
     listHomeBacklogHistory: () => fetchWithAuth<HomeBacklogItem[]>('/home/backlog/history'),

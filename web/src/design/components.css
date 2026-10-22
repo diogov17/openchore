@@ -190,3 +190,14 @@
 .oc-member__bar { flex: 1; height: 10px; border-radius: 999px; background: var(--surface-sunk); overflow: hidden; border: var(--outline-w) solid var(--line); }
 .oc-member__bar i { display: block; height: 100%; border-radius: 999px; background: var(--you, var(--highlight)); }
 .oc-member__c { width: 34px; text-align: right; font-size: 13px; font-weight: 600; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.oc-chore__title-button {
+  display: block;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.oc-chore__title-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }

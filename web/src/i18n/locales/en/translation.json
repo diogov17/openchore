@@ -1,4 +1,49 @@
 {
+  "chores": {
+    "add": "Add chore",
+    "name": "Chore name",
+    "placeholder": "What needs doing?",
+    "defaults": "Defaults: assigned to {{name}}, independent, until completed.",
+    "moreOptions": "More options",
+    "description": "Description",
+    "assignee": "Assigned to",
+    "rule": "Reward rule",
+    "independent": "Independent",
+    "points": "Points",
+    "startDate": "Available from",
+    "repeat": "Repeat",
+    "once": "Does not repeat",
+    "everyNDays": "Every N days",
+    "interval": "Number of days",
+    "behavior": "Unfinished chores",
+    "untilDone": "Until completed",
+    "startFresh": "Start fresh each scheduled day",
+    "behaviorHelp": "Until completed keeps one open chore without duplicates. Start fresh records unfinished occurrences as missed and creates a new one on the next scheduled day.",
+    "save": "Save",
+    "saveAnother": "Save and add another",
+    "saving": "Saving…",
+    "saved": "Chore saved. Add another below.",
+    "peopleError": "Could not load people. Try opening More options again.",
+    "completed": "Completed: {{name}}",
+    "undo": "Undo",
+    "done": "Done ({{count}})",
+    "history": "Chore history",
+    "historyError": "Could not load chore history. Close and reopen to try again.",
+    "loading": "Loading…",
+    "noHistory": "No history yet.",
+    "editOptions": "Edit chore and repetition",
+    "events": {
+      "created": "Chore added",
+      "available": "Available",
+      "approved": "Completed",
+      "pending": "Awaiting approval",
+      "rejected": "Rejected",
+      "excused": "Excused",
+      "missed": "Missed",
+      "undone": "Completion undone",
+      "repeated": "Opened again"
+    }
+  },
   "admin": {
     "activityTab": {
       "empty": "No activity yet",
@@ -87,6 +132,30 @@
       "subtitle_one": "{{count}} chore",
       "subtitle_other": "{{count}} chores"
     },
+    "homeBacklog": {
+      "assignError": "Could not assign this Home chore.",
+      "assignLabel": "Assign {{chore}}",
+      "allAdmins": "All admins",
+      "assignedAll": "Assigned to all admins",
+      "assignedTo": "Assigned to {{name}}",
+      "complete": "Done",
+      "completeError": "Could not complete this chore. It may already be completed or scheduled.",
+      "completedBy": "Completed by {{name}} on {{date}}",
+      "completing": "Saving...",
+      "edit": "Edit",
+      "empty": "Your Home backlog is clear.",
+      "heading": "Home",
+      "historyHeading": "Completed",
+      "loadError": "Could not load the Home backlog.",
+      "openHeading": "To do ({{count}})",
+      "repeat": "Add again",
+      "repeatError": "Could not add this chore again.",
+      "subtitle": "Unscheduled household chores to pick up or assign. The person who completes one earns its points.",
+      "unassigned": "Unassigned",
+      "uncheck": "Undo",
+      "uncheckError": "Could not undo this completion.",
+      "unknown": "Unknown"
+    },
     "colors": {
       "butter": "Butter",
       "coral": "Coral",
@@ -157,6 +226,7 @@
         "intervalWhen": "Every {{interval}} days from {{start}}",
         "min": "min",
         "noSchedule": "No schedule — you can add one later.",
+        "homeBacklog": "Added to the Home backlog for adults to pick up.",
         "penalty": "penalty",
         "photoSourceBoth": "external + fallback",
         "photoSourceChild": "child uploads",
@@ -164,10 +234,9 @@
         "pointsLabel": "Points",
         "pts": "pts",
         "scheduleTitle": "Schedule",
+        "sharedAdults": "Shared between adults; the person who completes it earns the points",
         "timeLabel": "Time",
-        "when": "When",
-        "homeBacklog": "Added to the Home backlog for adults to pick up.",
-        "sharedAdults": "Shared between adults; the person who completes it earns the points"
+        "when": "When"
       },
       "schedule": {
         "allUsers": "All",
@@ -178,13 +247,13 @@
         "deductLabel": "Deduct",
         "dueBy": "Due by",
         "helpText": "Add a schedule so this chore appears on dashboards. You can skip this and add schedules later.",
+        "homeHelpText": "Leave everyone unselected to add this to the Home backlog. You can also schedule it for someone.",
         "ifMissed": "If missed",
         "intervalSuffix": "days, starting",
         "repeatEvery": "Repeat every",
         "startDate": "Start date",
-        "typeLabel": "Schedule type",
-        "homeHelpText": "Leave everyone unselected to add this to the Home backlog. You can also schedule it for someone.",
-        "shared": "Shared between adults — the person who completes it earns the points"
+        "shared": "Shared between adults — the person who completes it earns the points",
+        "typeLabel": "Schedule type"
       },
       "scheduleType": {
         "interval": "Every N days",
@@ -205,14 +274,14 @@
       "reports": "Reports",
       "tabApprovals": "Approvals",
       "tabChores": "Chores",
+      "tabHome": "Home",
       "tabKids": "Today",
       "tabLog": "Log",
       "tabPeople": "People",
       "tabPoints": "Points",
       "tabRewards": "Rewards",
       "tabSettings": "Settings",
-      "title": "Manage",
-      "tabHome": "Home"
+      "title": "Manage"
     },
     "editChore": {
       "labelCategory": "Category",
@@ -319,6 +388,8 @@
       "excuseButton": "Excuse",
       "excuseButtonTooltip": "Excuse this chore and waive any missed penalty",
       "excusePrompt": "Excuse \"{{title}}\" for today? Enter optional reason (e.g. sick, weather, trip):",
+      "homeChoresCount_one": "{{count}} Home chore",
+      "homeChoresCount_other": "{{count}} Home chores",
       "heading": "Today",
       "loadError": "Failed to load kids status. Try refreshing.",
       "loading": "Loading...",
@@ -347,9 +418,7 @@
       "subtitle": "Everyone's day at a glance, {{date}}",
       "tapHint": "Tap a person to see today's chores. Tap a chore's circle to mark it done on their behalf.",
       "toggleError": "Couldn't update \"{{title}}\": {{error}}",
-      "waitingHeading": "Waiting for you",
-      "homeChoresCount_one": "{{count}} Home chore",
-      "homeChoresCount_other": "{{count}} Home chores"
+      "waitingHeading": "Waiting for you"
     },
     "modal": {
       "close": "Close"
@@ -443,6 +512,10 @@
       "btnAssign": "Assign",
       "btnAssignMultiple": "Assign to {{count}} people",
       "btnCancel": "Cancel",
+      "btnEdit": "Edit",
+      "btnSave": "Save schedule",
+      "btnSaving": "Saving...",
+      "editDaysCountHint": "Keep the same number of selected days while editing this weekly schedule.",
       "displayDeductIfLate": "(-{{points}} pts if late)",
       "displayDue": "due {{time}}",
       "displayFrom": "from {{time}}",
@@ -451,12 +524,14 @@
       "emptySchedules": "No schedules yet",
       "helpAvailableAt": "Chore hidden until this time",
       "helpDueBy": "Expires after this time",
+      "helpReminderAt": "Sends a phone notification if the chore is still incomplete",
       "ifLateTitle": "What happens when a child tries to complete this chore after the deadline.",
       "intervalDisplay": "Every {{interval}}d from {{start}}",
       "labelAssignTo": "Assign to",
       "labelAvailableAt": "Available at (time lock)",
       "labelDate": "Date",
       "labelDueBy": "Due by (deadline)",
+      "labelReminderAt": "Phone reminder",
       "labelEvery": "Every",
       "labelIfLate": "If completed late",
       "labelScheduleType": "Schedule type",
@@ -474,13 +549,7 @@
       "scheduleTypeTitle": "How often this chore repeats: weekly on specific days, every N days, or a single date.",
       "suffixDays": "days",
       "title": "Schedules",
-      "userFallback": "User {{id}}",
-      "btnEdit": "Edit",
-      "btnSave": "Save schedule",
-      "btnSaving": "Saving...",
-      "editDaysCountHint": "Keep the same number of selected days while editing this weekly schedule.",
-      "helpReminderAt": "Sends a phone notification if the chore is still incomplete",
-      "labelReminderAt": "Phone reminder"
+      "userFallback": "User {{id}}"
     },
     "settingsTab": {
       "ai": {
@@ -774,36 +843,13 @@
       "unpauseAriaLabel": "Unpause user",
       "unpauseTitle": "Unpause (resume chores)",
       "updateBtn": "Update"
-    },
-    "homeBacklog": {
-      "assignError": "Could not assign this Home chore.",
-      "assignLabel": "Assign {{chore}}",
-      "allAdmins": "All admins",
-      "assignedAll": "Assigned to all admins",
-      "assignedTo": "Assigned to {{name}}",
-      "complete": "Done",
-      "completeError": "Could not complete this chore. It may already be completed or scheduled.",
-      "completedBy": "Completed by {{name}} on {{date}}",
-      "completing": "Saving...",
-      "edit": "Edit",
-      "empty": "Your Home backlog is clear.",
-      "heading": "Home",
-      "historyHeading": "Completed",
-      "loadError": "Could not load the Home backlog.",
-      "openHeading": "To do ({{count}})",
-      "repeat": "Add again",
-      "repeatError": "Could not add this chore again.",
-      "subtitle": "Unscheduled household chores to pick up or assign. The person who completes one earns its points.",
-      "unassigned": "Unassigned",
-      "uncheck": "Undo",
-      "uncheckError": "Could not undo this completion.",
-      "unknown": "Unknown"
     }
   },
   "common": {
     "back": "Back",
     "language": "Language",
     "loading": "Loading…",
+    "modal": {},
     "pinPad": {
       "deleteAriaLabel": "Delete",
       "submitAriaLabel": "Done"
@@ -908,11 +954,11 @@
       "to": "9 pm"
     },
     "tabs": {
+      "home": "Home",
       "label": "Main",
       "rewards": "Rewards",
       "today": "Today",
-      "week": "Week",
-      "home": "Home"
+      "week": "Week"
     }
   },
   "entry": {
@@ -992,11 +1038,11 @@
       "opensIn": "Opens in {{time}}",
       "pointsPending_one": "Done. {{count}} pt after Must do",
       "pointsPending_other": "Done. {{count}} pts after Must do",
+      "reminderAt": "Reminder {{time}}",
       "readonlyDone": "Done",
       "readonlyTodo": "Not done",
       "rejected": "Not accepted. Try again",
-      "uploadPhotoProof": "Add photo proof",
-      "reminderAt": "Reminder {{time}}"
+      "uploadPhotoProof": "Add photo proof"
     },
     "colors": {
       "butter": "Butter",
@@ -1066,13 +1112,6 @@
       "pictureTitle": "Your picture",
       "readAloud": "Read chores aloud",
       "readAloudHint": "Adds a speaker to every chore",
-      "savePicture": "Use this picture",
-      "setPin": "Set a PIN",
-      "settings": "Settings",
-      "shuffle": "Shuffle",
-      "signOut": "Sign out",
-      "skin": "Your look",
-      "title": "Me",
       "pushReminders": "Chore reminders on this phone",
       "pushRemindersHint": "Allow notifications for scheduled chores",
       "pushRemindersDevices_one": "Notifications enabled on {{count}} device for this profile",
@@ -1080,7 +1119,14 @@
       "pushRemindersOtherDevices_one": "{{count}} other device is registered. Turn reminders on here to add this device.",
       "pushRemindersOtherDevices_other": "{{count}} other devices are registered. Turn reminders on here to add this device.",
       "pushError": "Could not enable notifications. Check browser permission and server setup.",
-      "pushUnavailable": "Open OpenChore over HTTPS in a browser that supports push notifications."
+      "pushUnavailable": "Open OpenChore over HTTPS in a browser that supports push notifications.",
+      "savePicture": "Use this picture",
+      "setPin": "Set a PIN",
+      "settings": "Settings",
+      "shuffle": "Shuffle",
+      "signOut": "Sign out",
+      "skin": "Your look",
+      "title": "Me"
     },
     "paused": {
       "text": "Enjoy your time off. Your chores are paused and no points are taken away while you're away.",
@@ -1158,6 +1204,20 @@
       "minutes_one": "{{count}} min",
       "minutes_other": "{{count}} min"
     },
+    "home": {
+      "assignError": "Could not assign this Home chore.",
+      "assignLabel": "Assign {{chore}}",
+      "assignedTo": "Assigned to {{name}}",
+      "complete": "Done",
+      "completedBy": "Completed by {{name}} on {{date}}",
+      "empty": "Your Home backlog is clear.",
+      "historyHeading": "Completed",
+      "openHeading": "To do ({{count}})",
+      "subtitle": "Pick a household chore whenever you have time, {{name}}.",
+      "unassigned": "Unassigned",
+      "uncheck": "Undo",
+      "unknown": "Unknown"
+    },
     "today": {
       "allDone": "All done for today",
       "bonusCount": "+{{count}}",
@@ -1198,20 +1258,6 @@
       "streakDays_one": "{{count}} day in a row",
       "streakDays_other": "{{count}} days in a row",
       "title": "This week"
-    },
-    "home": {
-      "assignError": "Could not assign this Home chore.",
-      "assignLabel": "Assign {{chore}}",
-      "assignedTo": "Assigned to {{name}}",
-      "complete": "Done",
-      "completedBy": "Completed by {{name}} on {{date}}",
-      "empty": "Your Home backlog is clear.",
-      "historyHeading": "Completed",
-      "openHeading": "To do ({{count}})",
-      "subtitle": "Pick a household chore whenever you have time, {{name}}.",
-      "unassigned": "Unassigned",
-      "uncheck": "Undo",
-      "unknown": "Unknown"
     }
   },
   "linkedAccounts": {
@@ -1349,13 +1395,13 @@
     "streak_one": "{{count}} day in a row",
     "streak_other": "{{count}} days in a row",
     "nextUp": "Next up",
+    "unassignedHome": "Home · Unassigned",
     "opensAt": "From {{time}}",
     "dueBy": "Before {{time}}",
     "late": "Was due {{time}}",
     "familyToday": "The family today",
     "chartTitle": "Today so far",
     "chartDesc": "How much of their day each person has done, hour by hour. Now: {{summary}}.",
-    "chartPerson": "{{name}} {{pct}}%",
-    "unassignedHome": "Home · Unassigned"
+    "chartPerson": "{{name}} {{pct}}%"
   }
 }

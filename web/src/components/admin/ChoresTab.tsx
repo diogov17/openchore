@@ -85,7 +85,7 @@ export const ChoresTab: React.FC<{ children?: React.ReactNode; onDataChanged?: (
         const cat = catFromCategory(category);
         return (
           <section key={category} className={ui.section}>
-            <CategoryHeader cat={cat} label={category === 'home' ? t('design.category.home') : undefined} as="h3" count={category === 'home' ? items.length + backlogIDs.size : items.length} className={ui.catHead} />
+            <CategoryHeader cat={cat} label={category === 'independent' ? t('chores.independent') : category === 'home' ? t('design.category.home') : undefined} as="h3" count={category === 'home' ? items.length + backlogIDs.size : items.length} className={ui.catHead} />
             {category === 'home' && children}
             <div className={ui.list}>
               {items.map(chore => (

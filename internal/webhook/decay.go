@@ -107,7 +107,7 @@ func (pdc *PointsDecayChecker) check(ctx context.Context) {
 		nonBonusCount := 0
 		var missedTitles []string
 		for _, c := range chores {
-			if c.Category == model.CategoryBonus || c.Category == model.CategoryHome {
+			if !c.ResetDaily || c.Category == model.CategoryIndependent || c.Category == model.CategoryBonus || c.Category == model.CategoryHome {
 				continue
 			}
 			nonBonusCount++

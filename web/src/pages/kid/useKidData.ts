@@ -179,13 +179,13 @@ export function useKidData(user: User | null, opts: { week: boolean; rewards: bo
         return { finished: true };
       }
       if (chore.completed && !opts2.retry) {
-        await api.chores.uncomplete(chore.schedule_id, chore.date, chore.completed_by || userId);
+        await api.chores.uncomplete(chore.schedule_id, chore.completion_date || chore.date, chore.completed_by || userId);
         await refreshAll();
         return {};
       }
       if (opts2.retry) {
         // A grown-up said no: clear that try, then start a fresh one.
-        await api.chores.uncomplete(chore.schedule_id, chore.date, chore.completed_by || userId);
+        await api.chores.uncomplete(chore.schedule_id, chore.completion_date || chore.date, chore.completed_by || userId);
       }
       const needsPhoto = chore.requires_photo && (chore.photo_source || 'child') === 'child';
       try {

@@ -82,6 +82,8 @@ func NewRouter(s *store.Store, dispatcher *webhook.Dispatcher, auth Auth) (*chi.
 			r.Use(RequireUserOrToken(s, auth.Sessions))
 
 			r.Get("/home/assigned", chores.ListMyAssignedHomeChores)
+			r.Post("/chores/quick", chores.QuickChore)
+			r.Get("/chores/{id}/history", chores.ChoreHistory)
 			r.Post("/push/subscription", push.Subscribe)
 			r.Post("/push/subscription/status", push.Status)
 			r.Delete("/push/subscription", push.Unsubscribe)

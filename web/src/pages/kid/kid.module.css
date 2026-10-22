@@ -101,6 +101,11 @@
 /* ---------- Today ---------- */
 .today { display: flex; flex-direction: column; }
 .todayHero { display: flex; flex-direction: column; }
+.addChore {
+  composes: button from '../../components/FloatingAddButton.module.css';
+  bottom: calc(var(--tab-h) + var(--tab-bottom) + var(--space-5) + env(safe-area-inset-bottom, 0px));
+}
+.today { padding-bottom: 80px; }
 .todayHero > h1 { margin-bottom: var(--space-4); }
 .progress { margin-bottom: var(--space-2); }
 .todayLine {

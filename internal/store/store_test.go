@@ -399,6 +399,126 @@ func TestListSchedulesForChore(t *testing.T) {
 	}
 }
 
+func TestHomeChoreAssignedToAllAdminsIsVisibleToAdminsAndAwardsFirstCompleter(t *testing.T) {
+	ctx := context.Background()
+	s := setupStore(t)
+	adminOne := createTestUser(t, s, "Admin One", "admin")
+	adminTwo := createTestUser(t, s, "Admin Two", "admin")
+	child := createTestUser(t, s, "Child", "child")
+	chore := createTestChore(t, s, "Take out recycling", 7, adminOne.ID)
+	chore.Category = model.CategoryHome
+	if err := s.UpdateChore(ctx, chore); err != nil {
+		t.Fatalf("UpdateChore to Home: %v", err)
+	}
+	if err := s.AssignHomeBacklogChore(ctx, chore.ID, 0, true); err != nil {
+		t.Fatalf("AssignHomeBacklogChore to all admins: %v", err)
+	}
+
+	for _, admin := range []*model.User{adminOne, adminTwo} {
+		items, err := s.ListAssignedHomeChores(ctx, admin.ID, "2026-10-19")
+		if err != nil {
+			t.Fatalf("ListAssignedHomeChores(%s): %v", admin.Name, err)
+		}
+		if len(items) != 1 || items[0].ChoreID != chore.ID || !items[0].AssignedToAll {
+			t.Errorf("%s assigned Home chores = %+v; want shared chore", admin.Name, items)
+		}
+	}
+	childItems, err := s.ListAssignedHomeChores(ctx, child.ID, "2026-10-19")
+	if err != nil {
+		t.Fatalf("ListAssignedHomeChores(child): %v", err)
+	}
+	if len(childItems) != 0 {
+		t.Errorf("child sees all-admin assignment: %+v", childItems)
+	}
+
+	if err := s.CompleteAssignedHomeBacklogChore(ctx, chore.ID, adminOne.ID, "2026-10-19"); err != nil {
+		t.Fatalf("first admin completion: %v", err)
+	}
+	if err := s.CompleteAssignedHomeBacklogChore(ctx, chore.ID, adminTwo.ID, "2026-10-19"); err == nil {
+		t.Fatal("second admin completion succeeded; want already-completed conflict")
+	}
+	if got, _ := s.GetPointBalance(ctx, adminOne.ID); got != 7 {
+		t.Errorf("first completer balance = %d, want 7", got)
+	}
+	if got, _ := s.GetPointBalance(ctx, adminTwo.ID); got != 0 {
+		t.Errorf("second admin balance = %d, want 0", got)
+	}
+
+	for _, admin := range []*model.User{adminOne, adminTwo} {
+		items, err := s.ListAssignedHomeChores(ctx, admin.ID, "2026-10-19")
+		if err != nil {
+			t.Fatalf("ListAssignedHomeChores after completion(%s): %v", admin.Name, err)
+		}
+		if len(items) != 1 || items[0].CompletedBy == nil || *items[0].CompletedBy != adminOne.ID {
+			t.Errorf("%s did not see the shared completion winner: %+v", admin.Name, items)
+		}
+	}
+}
+
+func TestChangingScheduleReminderAllowsPushToBeSentAgain(t *testing.T) {
+	ctx := context.Background()
+	s := setupStore(t)
+	user := createTestUser(t, s, "Child", "child")
+	chore := createTestChore(t, s, "Feed cat", 5, user.ID)
+	day := 1
+	reminderAt := "08:00"
+	schedule := &model.ChoreSchedule{
+		ChoreID: chore.ID, AssignedTo: user.ID, AssignmentType: "individual",
+		DayOfWeek: &day, PointsMultiplier: 1, ExpiryPenalty: "none", ReminderAt: &reminderAt,
+	}
+	if err := s.CreateSchedule(ctx, schedule); err != nil {
+		t.Fatalf("CreateSchedule: %v", err)
+	}
+	if err := s.SavePushSubscription(ctx, &model.PushSubscription{
+		UserID: user.ID, Endpoint: "https://push.example/device", P256dh: "key", Auth: "auth", Timezone: "UTC",
+	}); err != nil {
+		t.Fatalf("SavePushSubscription: %v", err)
+	}
+	subs, err := s.ListPushSubscriptions(ctx)
+	if err != nil || len(subs) != 1 {
+		t.Fatalf("ListPushSubscriptions: got %d subscriptions, err=%v", len(subs), err)
+	}
+	const date = "2026-10-19"
+	if err := s.RecordPushReminder(ctx, subs[0].ID, schedule.ID, date); err != nil {
+		t.Fatalf("RecordPushReminder: %v", err)
+	}
+	if sent, err := s.PushReminderSent(ctx, subs[0].ID, schedule.ID, date); err != nil || !sent {
+		t.Fatalf("PushReminderSent before change = %v, err=%v; want true", sent, err)
+	}
+
+	// The full schedule update path should clear deliveries only when the time changes.
+	updated, err := s.GetSchedule(ctx, schedule.ID)
+	if err != nil {
+		t.Fatalf("GetSchedule: %v", err)
+	}
+	if err := s.UpdateSchedule(ctx, updated); err != nil {
+		t.Fatalf("UpdateSchedule unchanged reminder: %v", err)
+	}
+	if sent, err := s.PushReminderSent(ctx, subs[0].ID, schedule.ID, date); err != nil || !sent {
+		t.Fatalf("unchanged reminder delivery = %v, err=%v; want preserved", sent, err)
+	}
+
+	newTime := "09:30"
+	updated.ReminderAt = &newTime
+	if err := s.UpdateSchedule(ctx, updated); err != nil {
+		t.Fatalf("UpdateSchedule changed reminder: %v", err)
+	}
+	if sent, err := s.PushReminderSent(ctx, subs[0].ID, schedule.ID, date); err != nil || sent {
+		t.Fatalf("delivery after UpdateSchedule = %v, err=%v; want false", sent, err)
+	}
+
+	if err := s.RecordPushReminder(ctx, subs[0].ID, schedule.ID, date); err != nil {
+		t.Fatalf("RecordPushReminder second send: %v", err)
+	}
+	latestTime := "10:00"
+	if err := s.UpdateScheduleReminder(ctx, schedule.ID, &latestTime); err != nil {
+		t.Fatalf("UpdateScheduleReminder: %v", err)
+	}
+	if sent, err := s.PushReminderSent(ctx, subs[0].ID, schedule.ID, date); err != nil || sent {
+		t.Fatalf("delivery after UpdateScheduleReminder = %v, err=%v; want false", sent, err)
+	}
+}
+
 func TestDeleteSchedule(t *testing.T) {
 	s := setupStore(t)
 	ctx := context.Background()
@@ -2388,6 +2508,10 @@ func TestOneOffScheduleAppearsForCorrectDate(t *testing.T) {
 	child := createTestUser(t, s, "Child", "child")
 	c := createTestChore(t, s, "Special task", 15, child.ID)
 
+	c.ResetDaily = true
+	if err := s.UpdateChore(ctx, c); err != nil {
+		t.Fatal(err)
+	}
 	date := "2026-04-15"
 	cs := &model.ChoreSchedule{
 		ChoreID:          c.ID,
@@ -2428,6 +2552,14 @@ func TestOneOffAndRecurringSchedulesTogether(t *testing.T) {
 	c1 := createTestChore(t, s, "Recurring chore", 5, child.ID)
 	c2 := createTestChore(t, s, "One-off chore", 10, child.ID)
 
+	c1.ResetDaily = true
+	c2.ResetDaily = true
+	if err := s.UpdateChore(ctx, c1); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpdateChore(ctx, c2); err != nil {
+		t.Fatal(err)
+	}
 	// 2026-04-08 is a Wednesday (day_of_week = 3)
 	createTestSchedule(t, s, c1.ID, child.ID, 3)
 
@@ -3745,125 +3877,5 @@ func TestAutoContributeAfterSliderUpdate(t *testing.T) {
 	got, _ := s.GetActiveCommitmentForUser(ctx, kid.ID)
 	if got == nil || got.AmountSaved != 25 {
 		t.Errorf("expected 25 auto-saved, got %+v", got)
-	}
-}
-
-func TestChangingScheduleReminderAllowsPushToBeSentAgain(t *testing.T) {
-	ctx := context.Background()
-	s := setupStore(t)
-	user := createTestUser(t, s, "Child", "child")
-	chore := createTestChore(t, s, "Feed cat", 5, user.ID)
-	day := 1
-	reminderAt := "08:00"
-	schedule := &model.ChoreSchedule{
-		ChoreID: chore.ID, AssignedTo: user.ID, AssignmentType: "individual",
-		DayOfWeek: &day, PointsMultiplier: 1, ExpiryPenalty: "none", ReminderAt: &reminderAt,
-	}
-	if err := s.CreateSchedule(ctx, schedule); err != nil {
-		t.Fatalf("CreateSchedule: %v", err)
-	}
-	if err := s.SavePushSubscription(ctx, &model.PushSubscription{
-		UserID: user.ID, Endpoint: "https://push.example/device", P256dh: "key", Auth: "auth", Timezone: "UTC",
-	}); err != nil {
-		t.Fatalf("SavePushSubscription: %v", err)
-	}
-	subs, err := s.ListPushSubscriptions(ctx)
-	if err != nil || len(subs) != 1 {
-		t.Fatalf("ListPushSubscriptions: got %d subscriptions, err=%v", len(subs), err)
-	}
-	const date = "2026-10-19"
-	if err := s.RecordPushReminder(ctx, subs[0].ID, schedule.ID, date); err != nil {
-		t.Fatalf("RecordPushReminder: %v", err)
-	}
-	if sent, err := s.PushReminderSent(ctx, subs[0].ID, schedule.ID, date); err != nil || !sent {
-		t.Fatalf("PushReminderSent before change = %v, err=%v; want true", sent, err)
-	}
-
-	// The full schedule update path should clear deliveries only when the time changes.
-	updated, err := s.GetSchedule(ctx, schedule.ID)
-	if err != nil {
-		t.Fatalf("GetSchedule: %v", err)
-	}
-	if err := s.UpdateSchedule(ctx, updated); err != nil {
-		t.Fatalf("UpdateSchedule unchanged reminder: %v", err)
-	}
-	if sent, err := s.PushReminderSent(ctx, subs[0].ID, schedule.ID, date); err != nil || !sent {
-		t.Fatalf("unchanged reminder delivery = %v, err=%v; want preserved", sent, err)
-	}
-
-	newTime := "09:30"
-	updated.ReminderAt = &newTime
-	if err := s.UpdateSchedule(ctx, updated); err != nil {
-		t.Fatalf("UpdateSchedule changed reminder: %v", err)
-	}
-	if sent, err := s.PushReminderSent(ctx, subs[0].ID, schedule.ID, date); err != nil || sent {
-		t.Fatalf("delivery after UpdateSchedule = %v, err=%v; want false", sent, err)
-	}
-
-	if err := s.RecordPushReminder(ctx, subs[0].ID, schedule.ID, date); err != nil {
-		t.Fatalf("RecordPushReminder second send: %v", err)
-	}
-	latestTime := "10:00"
-	if err := s.UpdateScheduleReminder(ctx, schedule.ID, &latestTime); err != nil {
-		t.Fatalf("UpdateScheduleReminder: %v", err)
-	}
-	if sent, err := s.PushReminderSent(ctx, subs[0].ID, schedule.ID, date); err != nil || sent {
-		t.Fatalf("delivery after UpdateScheduleReminder = %v, err=%v; want false", sent, err)
-	}
-}
-
-func TestHomeChoreAssignedToAllAdminsIsVisibleToAdminsAndAwardsFirstCompleter(t *testing.T) {
-	ctx := context.Background()
-	s := setupStore(t)
-	adminOne := createTestUser(t, s, "Admin One", "admin")
-	adminTwo := createTestUser(t, s, "Admin Two", "admin")
-	child := createTestUser(t, s, "Child", "child")
-	chore := createTestChore(t, s, "Take out recycling", 7, adminOne.ID)
-	chore.Category = model.CategoryHome
-	if err := s.UpdateChore(ctx, chore); err != nil {
-		t.Fatalf("UpdateChore to Home: %v", err)
-	}
-	if err := s.AssignHomeBacklogChore(ctx, chore.ID, 0, true); err != nil {
-		t.Fatalf("AssignHomeBacklogChore to all admins: %v", err)
-	}
-
-	for _, admin := range []*model.User{adminOne, adminTwo} {
-		items, err := s.ListAssignedHomeChores(ctx, admin.ID, "2026-10-19")
-		if err != nil {
-			t.Fatalf("ListAssignedHomeChores(%s): %v", admin.Name, err)
-		}
-		if len(items) != 1 || items[0].ChoreID != chore.ID || !items[0].AssignedToAll {
-			t.Errorf("%s assigned Home chores = %+v; want shared chore", admin.Name, items)
-		}
-	}
-	childItems, err := s.ListAssignedHomeChores(ctx, child.ID, "2026-10-19")
-	if err != nil {
-		t.Fatalf("ListAssignedHomeChores(child): %v", err)
-	}
-	if len(childItems) != 0 {
-		t.Errorf("child sees all-admin assignment: %+v", childItems)
-	}
-
-	if err := s.CompleteAssignedHomeBacklogChore(ctx, chore.ID, adminOne.ID, "2026-10-19"); err != nil {
-		t.Fatalf("first admin completion: %v", err)
-	}
-	if err := s.CompleteAssignedHomeBacklogChore(ctx, chore.ID, adminTwo.ID, "2026-10-19"); err == nil {
-		t.Fatal("second admin completion succeeded; want already-completed conflict")
-	}
-	if got, _ := s.GetPointBalance(ctx, adminOne.ID); got != 7 {
-		t.Errorf("first completer balance = %d, want 7", got)
-	}
-	if got, _ := s.GetPointBalance(ctx, adminTwo.ID); got != 0 {
-		t.Errorf("second admin balance = %d, want 0", got)
-	}
-
-	for _, admin := range []*model.User{adminOne, adminTwo} {
-		items, err := s.ListAssignedHomeChores(ctx, admin.ID, "2026-10-19")
-		if err != nil {
-			t.Fatalf("ListAssignedHomeChores after completion(%s): %v", admin.Name, err)
-		}
-		if len(items) != 1 || items[0].CompletedBy == nil || *items[0].CompletedBy != adminOne.ID {
-			t.Errorf("%s did not see the shared completion winner: %+v", admin.Name, items)
-		}
 	}
 }

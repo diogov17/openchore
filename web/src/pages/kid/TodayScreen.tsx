@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DayProgress, Greeting, catFromCategory, salutationFor, type DayProgressItem } from '../../design';
+import { DayProgress, Greeting, Icon, catFromCategory, salutationFor, type DayProgressItem } from '../../design';
+import { QuickChore } from '../../components/QuickChore/QuickChore';
+import ui from '../../components/admin/ui.module.css';
 import type { HomeBacklogItem, ScheduledChore, User } from '../../types';
 import { formatDuration, gates, isDone, type ChoreView } from './choreView';
 import { GoalNudge } from './GoalCard';
@@ -29,6 +31,9 @@ interface TodayProps {
 
 export function TodayScreen({ user, data, now, topBar, viewOf, tts, onToggle, onPhoto, onSpeak }: TodayProps) {
   const { t, i18n } = useTranslation();
+  const [adding, setAdding] = useState(false);
+  const [doneExpanded, setDoneExpanded] = useState(false);
+  const [lastCompleted, setLastCompleted] = useState<{ chore: ScheduledChore; view: ChoreView } | null>(null);
   const scheduledToday = (data.chores ?? []).filter(c => c.date === data.today);
   const completedToday = (item: HomeBacklogItem) => !!item.completed_at && (
     item.completion_date === data.today || localDateStr(new Date(item.completed_at)) === data.today
@@ -68,6 +73,13 @@ export function TodayScreen({ user, data, now, topBar, viewOf, tts, onToggle, on
       date: data.today,
     }));
   const chores = [...scheduledToday, ...homeToday];
+  const activeChores = chores.filter(c => !isDone(c));
+  const doneChores = chores.filter(isDone);
+  const toggleWithUndo = (chore: ScheduledChore, view: ChoreView) => {
+    if (!isDone(chore)) setLastCompleted({ chore, view });
+    else setLastCompleted(null);
+    onToggle(chore, view);
+  };
   const todayViewOf = (chore: ScheduledChore): ChoreView => {
     const view = viewOf(chore);
     if (chore.schedule_id >= 0) return view;
@@ -139,22 +151,37 @@ export function TodayScreen({ user, data, now, topBar, viewOf, tts, onToggle, on
       </section>
 
       <section className={s.todayLists} aria-label={t('kid.today.listLabel')}>
+        {lastCompleted && chores.some(c => c.schedule_id === lastCompleted.chore.schedule_id && isDone(c)) && <div className={ui.sectionHead} role="status">
+          <span>{t('chores.completed', { name: lastCompleted.chore.title })}</span>
+          <button type="button" className={ui.btn} disabled={data.togglingIds.has(lastCompleted.chore.schedule_id)} onClick={() => {
+            const current = chores.find(c => c.schedule_id === lastCompleted.chore.schedule_id);
+            if (current) onToggle(current, todayViewOf(current));
+            setLastCompleted(null);
+          }}>{t('chores.undo')}</button>
+        </div>}
         {user.paused ? (
           <PausedNotice />
         ) : loading ? null : chores.length === 0 ? (
           <Notice icon="sprout" title={t('kid.today.emptyTitle')}>{t('kid.today.emptyText')}</Notice>
         ) : (
           <ChoreGroups
-            chores={chores}
+            chores={activeChores}
             viewOf={todayViewOf}
             togglingIds={data.togglingIds}
             tts={tts}
-            onToggle={onToggle}
+            onToggle={toggleWithUndo}
+            onChanged={() => void data.refreshAll()}
             onPhoto={onPhoto}
             onSpeak={onSpeak}
           />
         )}
+        {!user.paused && doneChores.length > 0 && <section className={ui.section}>
+          <button type="button" className={ui.btnGhost} aria-expanded={doneExpanded} aria-controls="today-done" onClick={() => setDoneExpanded(value => !value)}>{t('chores.done', { count: doneChores.length })}</button>
+          {doneExpanded && <div id="today-done"><ChoreGroups chores={doneChores} viewOf={todayViewOf} togglingIds={data.togglingIds} tts={tts} onToggle={toggleWithUndo} onPhoto={onPhoto} onSpeak={onSpeak} onChanged={() => void data.refreshAll()} /></div>}
+        </section>}
       </section>
+      {!user.paused && <button type="button" className={s.addChore} onClick={() => setAdding(true)} title={t('chores.add')} aria-label={t('chores.add')}><Icon name="plus" /></button>}
+      {adding && <QuickChore user={user} onClose={() => setAdding(false)} onSaved={() => void data.refreshAll()} />}
 
       {/* Goals: under the list on a phone, under the hero on a tablet. */}
       {commitments.length > 0 && (

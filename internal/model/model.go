@@ -11,6 +11,7 @@ const (
 	CategoryCore        = "core"
 	CategoryBonus       = "bonus"
 	CategoryHome        = "home"
+	CategoryIndependent = "independent"
 )
 
 // Completion statuses
@@ -162,6 +163,7 @@ type OIDCProvider struct {
 }
 
 type Chore struct {
+	ResetDaily         bool      `json:"reset_daily"`
 	ID                 int64     `json:"id"`
 	Title              string    `json:"title"`
 	Description        string    `json:"description"`
@@ -418,6 +420,9 @@ type WebhookDelivery struct {
 
 // ScheduledChore is a denormalized view returned by the chores-for-user endpoint.
 type ScheduledChore struct {
+	ResetDaily         bool       `json:"reset_daily"`
+	ScheduledFor       string     `json:"scheduled_for,omitempty"`
+	CompletionDate     string     `json:"completion_date,omitempty"`
 	ScheduleID         int64      `json:"schedule_id"`
 	ChoreID            int64      `json:"chore_id"`
 	Title              string     `json:"title"`

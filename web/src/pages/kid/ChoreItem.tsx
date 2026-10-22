@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
+import { ChoreDetails } from '../../components/ChoreDetails';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { ChoreRow, Icon } from '../../design';
@@ -10,6 +11,7 @@ interface ChoreItemProps {
   chore: ScheduledChore;
   view: ChoreView;
   busy?: boolean;
+  onChanged?: () => void;
   /** Read-aloud is on for this person. */
   tts?: boolean;
   onToggle?: () => void;
@@ -27,8 +29,9 @@ export const choreDomId = (c: ScheduledChore) => `chore-${c.schedule_id}-${c.dat
  * One chore on a person's screen: the design's ChoreRow, plus what the old
  * card also carried — the description, a camera for adding photo proof, and swipe right to finish / left to undo.
  */
-export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onSpeak }: ChoreItemProps) {
+export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onSpeak, onChanged }: ChoreItemProps) {
   const { t, i18n } = useTranslation();
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const swipe = useRef<{ x: number; y: number; active: boolean; dragging: boolean }>({ x: 0, y: 0, active: false, dragging: false });
 
@@ -84,6 +87,7 @@ export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onSpeak }
       cat={view.cat}
       icon={chore.icon}
       title={chore.title}
+      onOpen={() => setDetailsOpen(true)}
       reminderAt={chore.reminder_at ? formatClock(atTime(chore.reminder_at, new Date()), i18n.language) : undefined}
       meta={view.meta}
       points={view.points}
@@ -94,7 +98,7 @@ export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onSpeak }
       onReadAloud={readAloud}
       onToggle={interactive ? onToggle : undefined}
       checkLabel={readOnly ? (done ? t('kid.chore.readonlyDone') : t('kid.chore.readonlyTodo')) : view.checkLabel}
-      busy={busy}
+      busy={busy || readOnly}
       actions={view.needsPhotoProof && onPhoto ? (
         <button type="button" className={s.rowAction} onClick={onPhoto} aria-label={t('kid.chore.uploadPhotoProof')}>
           <Icon name="camera" />
@@ -112,7 +116,8 @@ export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onSpeak }
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
-      {readOnly ? <fieldset disabled className={s.readonly}>{row}</fieldset> : row}
+      {row}
+      {detailsOpen && <ChoreDetails chore={chore} onClose={() => setDetailsOpen(false)} onChanged={onChanged} />}
       {chore.description && view.state !== 'done' && (
         <p className={s.caption}>{chore.description}</p>
       )}

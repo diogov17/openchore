@@ -47,19 +47,21 @@ export interface ChoreGroupsProps {
   onPhoto?: (c: ScheduledChore) => void;
   onSpeak?: (text: string, audioUrl?: string) => void;
   headingLevel?: 'h2' | 'h3';
+  onChanged?: () => void;
 }
 
 /** Chores under their category headers, always Must do → Every day → Bonus. */
-export function ChoreGroups({ chores, viewOf, togglingIds, tts, onToggle, onPhoto, onSpeak, headingLevel = 'h2' }: ChoreGroupsProps) {
+export function ChoreGroups({ chores, viewOf, togglingIds, tts, onToggle, onPhoto, onSpeak, onChanged, headingLevel = 'h2' }: ChoreGroupsProps) {
   const { t } = useTranslation();
   const groups: { key: string; cat: Cat; label?: string }[] = [
     ...CAT_ORDER.map(cat => ({ key: cat, cat })),
     { key: 'home', cat: 'daily', label: t('design.category.home') },
+    { key: 'independent', cat: 'daily', label: t('chores.independent') },
   ];
   return (
     <>
       {groups.map(({ key, cat, label }) => {
-        const list = chores.filter(c => key === 'home' ? c.category === 'home' : c.category !== 'home' && catFromCategory(c.category) === cat);
+        const list = chores.filter(c => key === 'home' || key === 'independent' ? c.category === key : c.category !== 'home' && c.category !== 'independent' && catFromCategory(c.category) === cat);
         if (!list.length) return null;
         const views = list.map(viewOf);
         const done = views.filter(v => v.state === 'done' || v.state === 'waiting').length;
@@ -80,6 +82,7 @@ export function ChoreGroups({ chores, viewOf, togglingIds, tts, onToggle, onPhot
                 onToggle={onToggle ? () => onToggle(c, views[i]) : undefined}
                 onPhoto={onPhoto ? () => onPhoto(c) : undefined}
                 onSpeak={onSpeak}
+                onChanged={onChanged}
               />
             ))}
           </section>

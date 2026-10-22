@@ -99,6 +99,7 @@ func createWebhook(t *testing.T, env *testEnv, url, secret, events string, activ
 func createChoreWithSchedule(t *testing.T, env *testEnv, parentID, childID int64, category string, dayOfWeek int, dueBy *string, missedPenalty int) (choreID, scheduleID int64) {
 	t.Helper()
 	c := &model.Chore{
+		ResetDaily:         true, // These fixtures exercise daily expiry and missed-day penalties.
 		Title:              fmt.Sprintf("Test Chore %d", time.Now().UnixNano()),
 		Description:        "test chore",
 		Category:           category,

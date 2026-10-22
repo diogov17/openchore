@@ -1,4 +1,49 @@
 {
+  "chores": {
+    "add": "Aufgabe hinzufügen",
+    "name": "Name der Aufgabe",
+    "placeholder": "Was ist zu tun?",
+    "defaults": "Standard: {{name}} zugewiesen, unabhängig, bis zur Erledigung.",
+    "moreOptions": "Weitere Optionen",
+    "description": "Beschreibung",
+    "assignee": "Zugewiesen an",
+    "rule": "Punkteregel",
+    "independent": "Unabhängig",
+    "points": "Punkte",
+    "startDate": "Verfügbar ab",
+    "repeat": "Wiederholen",
+    "once": "Keine Wiederholung",
+    "everyNDays": "Alle N Tage",
+    "interval": "Anzahl der Tage",
+    "behavior": "Unerledigte Aufgaben",
+    "untilDone": "Bis zur Erledigung",
+    "startFresh": "An jedem geplanten Tag neu beginnen",
+    "behaviorHelp": "Bis zur Erledigung bleibt eine Aufgabe ohne Duplikate offen. Neu beginnen erfasst unerledigte Aufgaben als verpasst und erstellt am nächsten geplanten Tag eine neue.",
+    "save": "Speichern",
+    "saveAnother": "Speichern und weitere hinzufügen",
+    "saving": "Wird gespeichert…",
+    "saved": "Aufgabe gespeichert. Weitere Aufgabe hinzufügen.",
+    "peopleError": "Personen konnten nicht geladen werden. Weitere Optionen erneut öffnen.",
+    "completed": "Erledigt: {{name}}",
+    "undo": "Rückgängig",
+    "done": "Erledigt ({{count}})",
+    "history": "Aufgabenverlauf",
+    "historyError": "Verlauf konnte nicht geladen werden. Schließen und erneut öffnen.",
+    "loading": "Wird geladen…",
+    "noHistory": "Noch kein Verlauf.",
+    "editOptions": "Aufgabe und Wiederholung bearbeiten",
+    "events": {
+      "created": "Aufgabe hinzugefügt",
+      "available": "Verfügbar",
+      "approved": "Erledigt",
+      "pending": "Wartet auf Freigabe",
+      "rejected": "Abgelehnt",
+      "excused": "Entschuldigt",
+      "missed": "Verpasst",
+      "undone": "Erledigung rückgängig gemacht",
+      "repeated": "Erneut geöffnet"
+    }
+  },
   "admin": {
     "activityTab": {
       "empty": "Noch keine Aktivitäten",
@@ -87,6 +132,30 @@
       "subtitle_one": "{{count}} Aufgabe",
       "subtitle_other": "{{count}} Aufgaben"
     },
+    "homeBacklog": {
+      "assignError": "Diese Haushaltsaufgabe konnte nicht zugewiesen werden.",
+      "assignLabel": "{{chore}} zuweisen",
+      "allAdmins": "Alle Admins",
+      "assignedAll": "Allen Admins zugewiesen",
+      "assignedTo": "Zugewiesen an {{name}}",
+      "complete": "Erledigt",
+      "completeError": "Die Aufgabe konnte nicht abgeschlossen werden. Sie ist möglicherweise bereits erledigt oder geplant.",
+      "completedBy": "Erledigt von {{name}} am {{date}}",
+      "completing": "Wird gespeichert...",
+      "edit": "Bearbeiten",
+      "empty": "Im Haushaltsrückstand ist nichts offen.",
+      "heading": "Haushalt",
+      "historyHeading": "Erledigt",
+      "loadError": "Der Haushaltsrückstand konnte nicht geladen werden.",
+      "openHeading": "Offen ({{count}})",
+      "repeat": "Erneut hinzufuegen",
+      "repeatError": "Diese Aufgabe konnte nicht erneut hinzugefuegt werden.",
+      "subtitle": "Ungeplante Haushaltsaufgaben zum Übernehmen oder Zuweisen. Wer eine erledigt, erhält die Punkte.",
+      "unassigned": "Nicht zugewiesen",
+      "uncheck": "Rückgängig",
+      "uncheckError": "Der Abschluss konnte nicht rückgängig gemacht werden.",
+      "unknown": "Unbekannt"
+    },
     "colors": {
       "butter": "Butter",
       "coral": "Koralle",
@@ -157,6 +226,7 @@
         "intervalWhen": "Alle {{interval}} Tage ab {{start}}",
         "min": "Min.",
         "noSchedule": "Kein Zeitplan — du kannst später einen hinzufügen.",
+        "homeBacklog": "Zum Haushaltsrückstand hinzugefügt, damit Erwachsene die Aufgabe übernehmen können.",
         "penalty": "Abzug",
         "photoSourceBoth": "extern + Fallback",
         "photoSourceChild": "Kind lädt hoch",
@@ -164,10 +234,9 @@
         "pointsLabel": "Punkte",
         "pts": "Pkt.",
         "scheduleTitle": "Zeitplan",
+        "sharedAdults": "Gemeinsam von Erwachsenen; wer die Aufgabe erledigt, erhÃ¤lt die Punkte",
         "timeLabel": "Zeit",
-        "when": "Wann",
-        "homeBacklog": "Zum Haushaltsrückstand hinzugefügt, damit Erwachsene die Aufgabe übernehmen können.",
-        "sharedAdults": "Gemeinsam von Erwachsenen; wer die Aufgabe erledigt, erhÃ¤lt die Punkte"
+        "when": "Wann"
       },
       "schedule": {
         "allUsers": "Alle",
@@ -178,13 +247,13 @@
         "deductLabel": "Abziehen",
         "dueBy": "Fällig bis",
         "helpText": "Füge einen Zeitplan hinzu, damit diese Aufgabe auf den Dashboards erscheint. Du kannst das überspringen und später Zeitpläne hinzufügen.",
+        "homeHelpText": "Lass alle Personen unmarkiert, um die Aufgabe zum Haushaltsrückstand hinzuzufügen. Du kannst sie auch jemandem zuweisen.",
         "ifMissed": "Wenn verpasst",
         "intervalSuffix": "Tage, beginnend am",
         "repeatEvery": "Wiederholen alle",
         "startDate": "Startdatum",
-        "typeLabel": "Zeitplantyp",
-        "homeHelpText": "Lass alle Personen unmarkiert, um die Aufgabe zum Haushaltsrückstand hinzuzufügen. Du kannst sie auch jemandem zuweisen.",
-        "shared": "Gemeinsam von Erwachsenen â€” wer die Aufgabe erledigt, erhÃ¤lt die Punkte"
+        "shared": "Gemeinsam von Erwachsenen â€” wer die Aufgabe erledigt, erhÃ¤lt die Punkte",
+        "typeLabel": "Zeitplantyp"
       },
       "scheduleType": {
         "interval": "Alle X Tage",
@@ -205,14 +274,14 @@
       "reports": "Berichte",
       "tabApprovals": "Freigaben",
       "tabChores": "Aufgaben",
+      "tabHome": "Haushalt",
       "tabKids": "Heute",
       "tabLog": "Protokoll",
       "tabPeople": "Personen",
       "tabPoints": "Punkte",
       "tabRewards": "Belohnungen",
       "tabSettings": "Einstellungen",
-      "title": "Verwalten",
-      "tabHome": "Haushalt"
+      "title": "Verwalten"
     },
     "editChore": {
       "labelCategory": "Kategorie",
@@ -319,6 +388,8 @@
       "excuseButton": "Entschuldigen",
       "excuseButtonTooltip": "Diese Aufgabe entschuldigen und Strafe erlassen",
       "excusePrompt": "\"{{title}}\" für heute entschuldigen? Optionalen Grund eingeben (z. B. krank, Wetter, Reise):",
+      "homeChoresCount_one": "{{count}} Haushaltsaufgabe",
+      "homeChoresCount_other": "{{count}} Haushaltsaufgaben",
       "heading": "Heute",
       "loadError": "Übersicht konnte nicht geladen werden. Bitte aktualisieren.",
       "loading": "Wird geladen...",
@@ -347,9 +418,7 @@
       "subtitle": "Der Tag aller auf einen Blick, {{date}}",
       "tapHint": "Tippe auf eine Person, um die heutigen Aufgaben zu sehen. Tippe auf den Kreis einer Aufgabe, um sie für sie zu erledigen.",
       "toggleError": "„{{title}}“ konnte nicht aktualisiert werden: {{error}}",
-      "waitingHeading": "Wartet auf dich",
-      "homeChoresCount_one": "{{count}} Haushaltsaufgabe",
-      "homeChoresCount_other": "{{count}} Haushaltsaufgaben"
+      "waitingHeading": "Wartet auf dich"
     },
     "modal": {
       "close": "Schließen"
@@ -443,6 +512,10 @@
       "btnAssign": "Zuweisen",
       "btnAssignMultiple": "{{count}} Personen zuweisen",
       "btnCancel": "Abbrechen",
+      "btnEdit": "Bearbeiten",
+      "btnSave": "Zeitplan speichern",
+      "btnSaving": "Wird gespeichert...",
+      "editDaysCountHint": "Beim Bearbeiten dieses Wochenplans muss die Anzahl der ausgewählten Tage gleich bleiben.",
       "displayDeductIfLate": "(-{{points}} Pkt. bei Verspätung)",
       "displayDue": "fällig um {{time}}",
       "displayFrom": "ab {{time}}",
@@ -450,12 +523,14 @@
       "dueByTitle": "Aufgabe verfällt nach dieser Uhrzeit. Leer lassen für keine Frist.",
       "emptySchedules": "Noch keine Zeitpläne",
       "helpAvailableAt": "Aufgabe bis zu dieser Uhrzeit verbergen",
+      "helpReminderAt": "Sendet eine Handy-Benachrichtigung, wenn die Aufgabe noch offen ist",
       "helpDueBy": "Verfällt nach dieser Uhrzeit",
       "ifLateTitle": "Was passiert, wenn ein Kind versucht, diese Aufgabe nach Ablauf der Frist abzuschließen?",
       "intervalDisplay": "Jeden {{interval}} Tag ab {{start}}",
       "labelAssignTo": "Zuweisen an",
       "labelAvailableAt": "Verfügbar ab (Zeitsperre)",
       "labelDate": "Datum",
+      "labelReminderAt": "Handy-Erinnerung",
       "labelDueBy": "Fällig bis (Deadline)",
       "labelEvery": "Alle",
       "labelIfLate": "Wenn verspätet erledigt",
@@ -474,13 +549,7 @@
       "scheduleTypeTitle": "Wie oft sich diese Aufgabe wiederholt: wöchentlich an bestimmten Tagen, alle N Tage oder an einem einzelnen Datum.",
       "suffixDays": "Tage",
       "title": "Zeitpläne",
-      "userFallback": "Benutzer {{id}}",
-      "btnEdit": "Bearbeiten",
-      "btnSave": "Zeitplan speichern",
-      "btnSaving": "Wird gespeichert...",
-      "editDaysCountHint": "Beim Bearbeiten dieses Wochenplans muss die Anzahl der ausgewählten Tage gleich bleiben.",
-      "helpReminderAt": "Sendet eine Handy-Benachrichtigung, wenn die Aufgabe noch offen ist",
-      "labelReminderAt": "Handy-Erinnerung"
+      "userFallback": "Benutzer {{id}}"
     },
     "settingsTab": {
       "ai": {
@@ -774,36 +843,13 @@
       "unpauseAriaLabel": "Benutzer fortsetzen",
       "unpauseTitle": "Fortsetzen (Aufgaben wieder aufnehmen)",
       "updateBtn": "Aktualisieren"
-    },
-    "homeBacklog": {
-      "assignError": "Diese Haushaltsaufgabe konnte nicht zugewiesen werden.",
-      "assignLabel": "{{chore}} zuweisen",
-      "allAdmins": "Alle Admins",
-      "assignedAll": "Allen Admins zugewiesen",
-      "assignedTo": "Zugewiesen an {{name}}",
-      "complete": "Erledigt",
-      "completeError": "Die Aufgabe konnte nicht abgeschlossen werden. Sie ist möglicherweise bereits erledigt oder geplant.",
-      "completedBy": "Erledigt von {{name}} am {{date}}",
-      "completing": "Wird gespeichert...",
-      "edit": "Bearbeiten",
-      "empty": "Im Haushaltsrückstand ist nichts offen.",
-      "heading": "Haushalt",
-      "historyHeading": "Erledigt",
-      "loadError": "Der Haushaltsrückstand konnte nicht geladen werden.",
-      "openHeading": "Offen ({{count}})",
-      "repeat": "Erneut hinzufuegen",
-      "repeatError": "Diese Aufgabe konnte nicht erneut hinzugefuegt werden.",
-      "subtitle": "Ungeplante Haushaltsaufgaben zum Übernehmen oder Zuweisen. Wer eine erledigt, erhält die Punkte.",
-      "unassigned": "Nicht zugewiesen",
-      "uncheck": "Rückgängig",
-      "uncheckError": "Der Abschluss konnte nicht rückgängig gemacht werden.",
-      "unknown": "Unbekannt"
     }
   },
   "common": {
     "back": "Zurück",
     "language": "Sprache",
     "loading": "Wird geladen…",
+    "modal": {},
     "pinPad": {
       "deleteAriaLabel": "Löschen",
       "submitAriaLabel": "Fertig"
@@ -908,11 +954,11 @@
       "to": "21 Uhr"
     },
     "tabs": {
+      "home": "Haushalt",
       "label": "Hauptmenü",
       "rewards": "Belohnungen",
       "today": "Heute",
-      "week": "Woche",
-      "home": "Haushalt"
+      "week": "Woche"
     }
   },
   "entry": {
@@ -992,11 +1038,11 @@
       "opensIn": "In {{time}}",
       "pointsPending_one": "Erledigt. {{count}} Pkt. nach den Pflichten",
       "pointsPending_other": "Erledigt. {{count}} Pkt. nach den Pflichten",
+      "reminderAt": "Erinnerung {{time}}",
       "readonlyDone": "Erledigt",
       "readonlyTodo": "Nicht erledigt",
       "rejected": "Nicht angenommen. Versuch es noch mal",
-      "uploadPhotoProof": "Foto als Nachweis hinzufügen",
-      "reminderAt": "Erinnerung {{time}}"
+      "uploadPhotoProof": "Foto als Nachweis hinzufügen"
     },
     "colors": {
       "butter": "Butter",
@@ -1066,13 +1112,6 @@
       "pictureTitle": "Dein Bild",
       "readAloud": "Aufgaben vorlesen",
       "readAloudHint": "Jede Aufgabe bekommt einen Lautsprecher",
-      "savePicture": "Dieses Bild nehmen",
-      "setPin": "PIN festlegen",
-      "settings": "Einstellungen",
-      "shuffle": "Mischen",
-      "signOut": "Abmelden",
-      "skin": "Dein Look",
-      "title": "Ich",
       "pushReminders": "Aufgabenerinnerungen auf diesem Handy",
       "pushRemindersDevices_one": "Benachrichtigungen dieses Profils auf {{count}} Gerät aktiviert",
       "pushRemindersDevices_other": "Benachrichtigungen dieses Profils auf {{count}} Geräten aktiviert",
@@ -1080,7 +1119,14 @@
       "pushRemindersOtherDevices_other": "{{count}} weitere Geräte sind registriert. Aktiviere Erinnerungen hier, um dieses Gerät hinzuzufügen.",
       "pushRemindersHint": "Benachrichtigungen für geplante Aufgaben erlauben",
       "pushError": "Benachrichtigungen konnten nicht aktiviert werden. Browser-Berechtigung und Servereinstellungen prüfen.",
-      "pushUnavailable": "Öffne OpenChore über HTTPS in einem Browser mit Push-Benachrichtigungen."
+      "pushUnavailable": "Öffne OpenChore über HTTPS in einem Browser mit Push-Benachrichtigungen.",
+      "savePicture": "Dieses Bild nehmen",
+      "setPin": "PIN festlegen",
+      "settings": "Einstellungen",
+      "shuffle": "Mischen",
+      "signOut": "Abmelden",
+      "skin": "Dein Look",
+      "title": "Ich"
     },
     "paused": {
       "text": "Genieß die freie Zeit. Deine Aufgaben ruhen, und solange du weg bist, gehen keine Punkte verloren.",
@@ -1158,6 +1204,22 @@
       "minutes_one": "{{count}} Min.",
       "minutes_other": "{{count}} Min."
     },
+    "home": {
+      "assignError": "Diese Haushaltsaufgabe konnte nicht zugewiesen werden.",
+      "assignLabel": "{{chore}} zuweisen",
+      "assignedTo": "Zugewiesen an {{name}}",
+      "complete": "Erledigt",
+      "completedBy": "Erledigt von {{name}} am {{date}}",
+      "empty": "Im Haushaltsrückstand ist nichts offen.",
+      "historyHeading": "Erledigt",
+      "openHeading": "Offen ({{count}})",
+      "repeat": "Erneut hinzufuegen",
+      "repeatError": "Diese Aufgabe konnte nicht erneut hinzugefuegt werden.",
+      "subtitle": "Übernimm eine Haushaltsaufgabe, wenn du Zeit hast, {{name}}.",
+      "unassigned": "Nicht zugewiesen",
+      "uncheck": "Rückgängig",
+      "unknown": "Unbekannt"
+    },
     "today": {
       "allDone": "Alles erledigt für heute",
       "bonusCount": "+{{count}}",
@@ -1198,22 +1260,6 @@
       "streakDays_one": "{{count}} Tag in Folge",
       "streakDays_other": "{{count}} Tage in Folge",
       "title": "Diese Woche"
-    },
-    "home": {
-      "assignError": "Diese Haushaltsaufgabe konnte nicht zugewiesen werden.",
-      "assignLabel": "{{chore}} zuweisen",
-      "assignedTo": "Zugewiesen an {{name}}",
-      "complete": "Erledigt",
-      "completedBy": "Erledigt von {{name}} am {{date}}",
-      "empty": "Im Haushaltsrückstand ist nichts offen.",
-      "historyHeading": "Erledigt",
-      "openHeading": "Offen ({{count}})",
-      "repeat": "Erneut hinzufuegen",
-      "repeatError": "Diese Aufgabe konnte nicht erneut hinzugefuegt werden.",
-      "subtitle": "Übernimm eine Haushaltsaufgabe, wenn du Zeit hast, {{name}}.",
-      "unassigned": "Nicht zugewiesen",
-      "uncheck": "Rückgängig",
-      "unknown": "Unbekannt"
     }
   },
   "linkedAccounts": {
@@ -1351,13 +1397,13 @@
     "streak_one": "{{count}} Tag in Folge",
     "streak_other": "{{count}} Tage in Folge",
     "nextUp": "Als Nächstes",
+    "unassignedHome": "Haushalt · Nicht zugewiesen",
     "opensAt": "Ab {{time}}",
     "dueBy": "Bis {{time}}",
     "late": "War bis {{time}} fällig",
     "familyToday": "Die Familie heute",
     "chartTitle": "Heute bisher",
     "chartDesc": "Wie viel jede Person von ihrem Tag geschafft hat, Stunde für Stunde. Jetzt: {{summary}}.",
-    "chartPerson": "{{name}} {{pct}} %",
-    "unassignedHome": "Haushalt · Nicht zugewiesen"
+    "chartPerson": "{{name}} {{pct}} %"
   }
 }

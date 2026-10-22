@@ -27,6 +27,7 @@ export interface ChoreRowProps {
   /** Tap on the check. Not called while locked or busy. */
   onToggle?: () => void;
   onReadAloud?: () => void;
+  onOpen?: () => void;
   /** Override the check's accessible name (defaults: "Mark complete" / "Mark incomplete"). */
   checkLabel?: string;
   /** A toggle is in flight: the check is disabled and dimmed. */
@@ -50,7 +51,7 @@ export interface ChoreRowProps {
  */
 export function ChoreRow({
   cat = 'daily', icon, title, meta, points, state = 'todo', urgent, photo, readAloud,
-  reminderAt, onToggle, onReadAloud, checkLabel, busy, actions, readOnly, className, id,
+  reminderAt, onToggle, onReadAloud, onOpen, checkLabel, busy, actions, readOnly, className, id,
 }: ChoreRowProps) {
   const { t } = useTranslation();
   const iconName = resolveChoreIcon(icon, cat);
@@ -103,7 +104,7 @@ export function ChoreRow({
         <Icon name={iconName} />
       </span>
       <span className="oc-chore__txt">
-        <span className="oc-chore__title">{title}</span>
+        {onOpen ? <button type="button" className="oc-chore__title oc-chore__title-button" onClick={onOpen}>{title}</button> : <span className="oc-chore__title">{title}</span>}
         {metaLine != null && <span className="oc-chore__meta">{metaLine}</span>}
       </span>
       {readAloud && !readOnly && state !== 'done' && (

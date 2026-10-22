@@ -18,7 +18,7 @@ export function isChoreDone(c: Chore): boolean {
  * - `bonusOpen`: every Must do and Every day chore is done, so Bonus opens.
  */
 export function dayGates(todayChores: readonly Chore[]): { requiredDone: boolean; bonusOpen: boolean } {
-  const open = todayChores.filter(c => c.assignment_type !== 'family' && c.category !== 'home' && (c.available || c.completed));
+  const open = todayChores.filter(c => c.assignment_type !== 'family' && c.category !== 'home' && c.category !== 'independent' && (c.available || c.completed));
   return {
     requiredDone: open.filter(c => c.category === 'required').every(isChoreDone),
     bonusOpen: open.filter(c => c.category !== 'bonus').every(isChoreDone),

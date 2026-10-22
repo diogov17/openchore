@@ -103,14 +103,15 @@ func Apply(ctx context.Context, s *store.Store, cfg *Config) error {
 	// 3. Create chores and their schedules
 	for _, c := range cfg.Chores {
 		chore := &model.Chore{
-			Title:            c.Title,
-			Icon:             c.Icon,
-			Category:         c.Category,
-			PointsValue:      c.Points,
+			ResetDaily:         c.ResetDaily,
+			Title:              c.Title,
+			Icon:               c.Icon,
+			Category:           c.Category,
+			PointsValue:        c.Points,
 			MissedPenaltyValue: c.MissedPenalty,
-			RequiresApproval: c.RequiresApproval,
-			RequiresPhoto:    c.RequiresPhoto,
-			PhotoSource:      c.PhotoSource,
+			RequiresApproval:   c.RequiresApproval,
+			RequiresPhoto:      c.RequiresPhoto,
+			PhotoSource:        c.PhotoSource,
 		}
 		// Find admin user for created_by
 		for _, u := range cfg.Users {
