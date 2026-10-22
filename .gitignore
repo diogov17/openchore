@@ -23,6 +23,8 @@ web/debug-*.mjs
 
 # Config (user's real config — copy config.example.yaml to config.yaml)
 config/config.yaml
+.env
+/caddy-root.crt
 
 # OS
 .DS_Store
@@ -38,6 +40,7 @@ internal/*/data/
 
 # Temp
 /tmp/
+/.tmp/
 
 # Editor/Agent
 .claude/

@@ -7,6 +7,8 @@ const fsModule: string = 'node:fs';
 const pathModule: string = 'node:path';
 const { readFileSync } = (await import(/* @vite-ignore */ fsModule)) as Fs;
 const { resolve } = (await import(/* @vite-ignore */ pathModule)) as Path;
+const urlModule: string = 'node:url';
+const { fileURLToPath } = (await import(/* @vite-ignore */ urlModule)) as { fileURLToPath: (url: URL) => string };
 
 // Issue #20 regression tests. CreateChoreWizard and EditChoreModal used to
 // duplicate their form CSS verbatim. The fix extracted the shared rules into
@@ -15,7 +17,7 @@ const { resolve } = (await import(/* @vite-ignore */ pathModule)) as Path;
 // validate that wiring so a future edit that deletes the shared file, removes
 // a `composes:` directive, or re-inlines the duplicated rules will fail CI.
 
-const here = new URL('.', import.meta.url).pathname;
+const here = fileURLToPath(new URL('.', import.meta.url));
 const sharedCssPath = resolve(here, 'forms.module.css');
 const wizardCssPath = resolve(
   here,
