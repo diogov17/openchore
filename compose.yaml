@@ -17,6 +17,9 @@ services:
       - TTS_BASE_URL=${TTS_BASE_URL:-}
       - TTS_API_KEY=${TTS_API_KEY:-}
       - TTS_MODEL=${TTS_MODEL:-}
+      - PUSH_VAPID_PUBLIC_KEY=${PUSH_VAPID_PUBLIC_KEY:-}
+      - PUSH_VAPID_PRIVATE_KEY=${PUSH_VAPID_PRIVATE_KEY:-}
+      - PUSH_VAPID_SUBJECT=${PUSH_VAPID_SUBJECT:-admin@openchore.local}
     volumes:
       - openchore-data:/data
       - ./config:/app/config:ro

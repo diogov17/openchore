@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { ChoreRow, Icon } from '../../design';
 import type { ScheduledChore } from '../../types';
-import type { ChoreView } from './choreView';
+import { atTime, formatClock, type ChoreView } from './choreView';
 import s from './kid.module.css';
 
 interface ChoreItemProps {
@@ -28,7 +28,7 @@ export const choreDomId = (c: ScheduledChore) => `chore-${c.schedule_id}-${c.dat
  * card also carried — the description, a camera for adding photo proof, and swipe right to finish / left to undo.
  */
 export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onSpeak }: ChoreItemProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const wrapRef = useRef<HTMLDivElement>(null);
   const swipe = useRef<{ x: number; y: number; active: boolean; dragging: boolean }>({ x: 0, y: 0, active: false, dragging: false });
 
@@ -84,6 +84,7 @@ export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onSpeak }
       cat={view.cat}
       icon={chore.icon}
       title={chore.title}
+      reminderAt={chore.reminder_at ? formatClock(atTime(chore.reminder_at, new Date()), i18n.language) : undefined}
       meta={view.meta}
       points={view.points}
       state={view.state}

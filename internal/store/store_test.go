@@ -3747,3 +3747,67 @@ func TestAutoContributeAfterSliderUpdate(t *testing.T) {
 		t.Errorf("expected 25 auto-saved, got %+v", got)
 	}
 }
+
+func TestChangingScheduleReminderAllowsPushToBeSentAgain(t *testing.T) {
+	ctx := context.Background()
+	s := setupStore(t)
+	user := createTestUser(t, s, "Child", "child")
+	chore := createTestChore(t, s, "Feed cat", 5, user.ID)
+	day := 1
+	reminderAt := "08:00"
+	schedule := &model.ChoreSchedule{
+		ChoreID: chore.ID, AssignedTo: user.ID, AssignmentType: "individual",
+		DayOfWeek: &day, PointsMultiplier: 1, ExpiryPenalty: "none", ReminderAt: &reminderAt,
+	}
+	if err := s.CreateSchedule(ctx, schedule); err != nil {
+		t.Fatalf("CreateSchedule: %v", err)
+	}
+	if err := s.SavePushSubscription(ctx, &model.PushSubscription{
+		UserID: user.ID, Endpoint: "https://push.example/device", P256dh: "key", Auth: "auth", Timezone: "UTC",
+	}); err != nil {
+		t.Fatalf("SavePushSubscription: %v", err)
+	}
+	subs, err := s.ListPushSubscriptions(ctx)
+	if err != nil || len(subs) != 1 {
+		t.Fatalf("ListPushSubscriptions: got %d subscriptions, err=%v", len(subs), err)
+	}
+	const date = "2026-10-19"
+	if err := s.RecordPushReminder(ctx, subs[0].ID, schedule.ID, date); err != nil {
+		t.Fatalf("RecordPushReminder: %v", err)
+	}
+	if sent, err := s.PushReminderSent(ctx, subs[0].ID, schedule.ID, date); err != nil || !sent {
+		t.Fatalf("PushReminderSent before change = %v, err=%v; want true", sent, err)
+	}
+
+	// The full schedule update path should clear deliveries only when the time changes.
+	updated, err := s.GetSchedule(ctx, schedule.ID)
+	if err != nil {
+		t.Fatalf("GetSchedule: %v", err)
+	}
+	if err := s.UpdateSchedule(ctx, updated); err != nil {
+		t.Fatalf("UpdateSchedule unchanged reminder: %v", err)
+	}
+	if sent, err := s.PushReminderSent(ctx, subs[0].ID, schedule.ID, date); err != nil || !sent {
+		t.Fatalf("unchanged reminder delivery = %v, err=%v; want preserved", sent, err)
+	}
+
+	newTime := "09:30"
+	updated.ReminderAt = &newTime
+	if err := s.UpdateSchedule(ctx, updated); err != nil {
+		t.Fatalf("UpdateSchedule changed reminder: %v", err)
+	}
+	if sent, err := s.PushReminderSent(ctx, subs[0].ID, schedule.ID, date); err != nil || sent {
+		t.Fatalf("delivery after UpdateSchedule = %v, err=%v; want false", sent, err)
+	}
+
+	if err := s.RecordPushReminder(ctx, subs[0].ID, schedule.ID, date); err != nil {
+		t.Fatalf("RecordPushReminder second send: %v", err)
+	}
+	latestTime := "10:00"
+	if err := s.UpdateScheduleReminder(ctx, schedule.ID, &latestTime); err != nil {
+		t.Fatalf("UpdateScheduleReminder: %v", err)
+	}
+	if sent, err := s.PushReminderSent(ctx, subs[0].ID, schedule.ID, date); err != nil || sent {
+		t.Fatalf("delivery after UpdateScheduleReminder = %v, err=%v; want false", sent, err)
+	}
+}

@@ -1,4 +1,4 @@
-import React, { useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import {
@@ -7,6 +7,7 @@ import {
 } from '../../design';
 import { LANGUAGES } from '../../i18n/languages';
 import type { User } from '../../types';
+import { api } from '../../api';
 import { Sheet } from './Sheet';
 import s from './kid.module.css';
 
@@ -58,12 +59,59 @@ export function MeSheet(props: MeSheetProps) {
   const { user, skin, isAdmin, tts, onClose, onSkin, onColor, onTts, onPin, onLinked, onManage, onSignOut } = props;
   const { t, i18n } = useTranslation();
   const [picking, setPicking] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushDeviceCount, setPushDeviceCount] = useState(0);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState(false);
+  const pushSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const color = isPersonColor(user.color) ? user.color : null;
   const skinHead = useId();
   const colorHead = useId();
   const langId = useId();
   const skins = useRovingRadios(SKINS, skin, onSkin);
   const colors = useRovingRadios(PERSON_COLORS, color as PersonColor, onColor);
+
+  useEffect(() => {
+    if (!pushSupported) return;
+    navigator.serviceWorker.ready.then(reg => reg.pushManager.getSubscription()).then(async sub => {
+      if (sub) {
+        const status = await api.push.status(sub.endpoint);
+        setPushEnabled(status.enabled);
+        setPushDeviceCount(status.device_count);
+      } else {
+        const status = await api.push.status('');
+        setPushDeviceCount(status.device_count);
+      }
+    }).catch(() => {});
+  }, [pushSupported]);
+
+  const togglePush = async () => {
+    setPushBusy(true); setPushError(false);
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const current = await registration.pushManager.getSubscription();
+      if (current && pushEnabled) {
+        await api.push.unsubscribe(current.endpoint);
+        await current.unsubscribe();
+        setPushEnabled(false);
+        setPushDeviceCount((await api.push.status(current.endpoint)).device_count);
+      } else if (current) {
+        await api.push.subscribe(current.toJSON(), Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+        setPushEnabled(true);
+        setPushDeviceCount((await api.push.status(current.endpoint)).device_count);
+      } else {
+        const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+        if (permission !== 'granted') throw new Error('notification permission denied');
+        const { public_key } = await api.push.publicKey();
+        const key = Uint8Array.from(atob(public_key.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+        const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+        await api.push.subscribe(subscription.toJSON(), Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+        setPushEnabled(true);
+        setPushDeviceCount((await api.push.status(subscription.endpoint)).device_count);
+      }
+    } catch (err) { console.error('Push reminder setting failed:', err); setPushError(true); }
+    finally { setPushBusy(false); }
+  };
 
   if (picking) {
     return <AvatarPicker user={user} onBack={() => setPicking(false)} onClose={onClose} onSave={props.onAvatar} />;
@@ -137,6 +185,18 @@ export function MeSheet(props: MeSheetProps) {
 
       <h3 className={s.meSection}>{t('kid.me.settings')}</h3>
       <div className={s.settingsList}>
+        {pushSupported ? (
+          <button type="button" role="switch" aria-checked={pushEnabled} className={s.settingRow} onClick={togglePush} disabled={pushBusy}>
+            <Icon name="clock" />
+            <span className={s.settingText}>{t('kid.me.pushReminders')}<small>{t(pushError ? 'kid.me.pushError' : pushEnabled ? 'kid.me.pushRemindersDevices' : pushDeviceCount > 0 ? 'kid.me.pushRemindersOtherDevices' : 'kid.me.pushRemindersHint', { count: pushDeviceCount })}</small></span>
+            <span className={clsx(s.switch, pushEnabled && s.switchOn)} aria-hidden><i /></span>
+          </button>
+        ) : (
+          <div className={s.settingRow} aria-disabled="true">
+            <Icon name="clock" />
+            <span className={s.settingText}>{t('kid.me.pushReminders')}<small>{t('kid.me.pushUnavailable')}</small></span>
+          </div>
+        )}
         <button
           type="button"
           role="switch"

@@ -785,9 +785,9 @@ func (s *Store) UpdateChoreTTSAudioURL(ctx context.Context, choreID int64, url s
 
 func (s *Store) CreateSchedule(ctx context.Context, cs *model.ChoreSchedule) error {
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO chore_schedules (chore_id, assigned_to, assignment_type, fcfs_group_id, day_of_week, specific_date, available_at, points_multiplier, start_date, end_date, recurrence_interval, recurrence_start, due_by, expiry_penalty, expiry_penalty_value)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		cs.ChoreID, cs.AssignedTo, cs.AssignmentType, cs.FcfsGroupID, cs.DayOfWeek, cs.SpecificDate, cs.AvailableAt, cs.PointsMultiplier, cs.StartDate, cs.EndDate, cs.RecurrenceInterval, cs.RecurrenceStart, cs.DueBy, cs.ExpiryPenalty, cs.ExpiryPenaltyValue)
+		`INSERT INTO chore_schedules (chore_id, assigned_to, assignment_type, fcfs_group_id, day_of_week, specific_date, available_at, points_multiplier, start_date, end_date, recurrence_interval, recurrence_start, due_by, expiry_penalty, expiry_penalty_value, reminder_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		cs.ChoreID, cs.AssignedTo, cs.AssignmentType, cs.FcfsGroupID, cs.DayOfWeek, cs.SpecificDate, cs.AvailableAt, cs.PointsMultiplier, cs.StartDate, cs.EndDate, cs.RecurrenceInterval, cs.RecurrenceStart, cs.DueBy, cs.ExpiryPenalty, cs.ExpiryPenaltyValue, cs.ReminderAt)
 	if err != nil {
 		return err
 	}
@@ -800,11 +800,43 @@ func (s *Store) DeleteSchedule(ctx context.Context, id int64) error {
 	return err
 }
 
+func (s *Store) UpdateSchedule(ctx context.Context, cs *model.ChoreSchedule) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var oldReminder sql.NullString
+	if err := tx.QueryRowContext(ctx, `SELECT reminder_at FROM chore_schedules WHERE id = ?`, cs.ID).Scan(&oldReminder); err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx,
+		`UPDATE chore_schedules SET assigned_to=?, assignment_type=?, day_of_week=?, specific_date=?, available_at=?, points_multiplier=?, start_date=?, end_date=?, recurrence_interval=?, recurrence_start=?, due_by=?, expiry_penalty=?, expiry_penalty_value=?, reminder_at=? WHERE id=?`,
+		cs.AssignedTo, cs.AssignmentType, cs.DayOfWeek, cs.SpecificDate, cs.AvailableAt, cs.PointsMultiplier, cs.StartDate, cs.EndDate, cs.RecurrenceInterval, cs.RecurrenceStart, cs.DueBy, cs.ExpiryPenalty, cs.ExpiryPenaltyValue, cs.ReminderAt, cs.ID)
+	if err != nil {
+		return err
+	}
+	if reminderValue(oldReminder) != reminderPointerValue(cs.ReminderAt) {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM push_reminder_deliveries WHERE schedule_id = ?`, cs.ID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
 
+func reminderValue(value sql.NullString) string {
+	if !value.Valid {
+		return ""
+	}
+	return value.String
+}
 
-
-
-
+func reminderPointerValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
 
 // ScheduleExistsForDate checks if a one-off schedule already exists for a chore + user + date.
 func (s *Store) ScheduleExistsForDate(ctx context.Context, choreID, userID int64, date string) (bool, error) {
@@ -817,7 +849,7 @@ func (s *Store) ScheduleExistsForDate(ctx context.Context, choreID, userID int64
 
 func (s *Store) ListSchedulesForChore(ctx context.Context, choreID int64) ([]model.ChoreSchedule, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, chore_id, assigned_to, assignment_type, fcfs_group_id, day_of_week, specific_date, available_at, points_multiplier, start_date, end_date, recurrence_interval, recurrence_start, due_by, expiry_penalty, expiry_penalty_value, created_at
+		`SELECT id, chore_id, assigned_to, assignment_type, fcfs_group_id, day_of_week, specific_date, available_at, points_multiplier, start_date, end_date, recurrence_interval, recurrence_start, due_by, expiry_penalty, expiry_penalty_value, created_at, reminder_at
 		 FROM chore_schedules WHERE chore_id = ? ORDER BY id`, choreID)
 	if err != nil {
 		return nil, err
@@ -826,7 +858,7 @@ func (s *Store) ListSchedulesForChore(ctx context.Context, choreID int64) ([]mod
 	var schedules []model.ChoreSchedule
 	for rows.Next() {
 		var cs model.ChoreSchedule
-		if err := rows.Scan(&cs.ID, &cs.ChoreID, &cs.AssignedTo, &cs.AssignmentType, &cs.FcfsGroupID, &cs.DayOfWeek, &cs.SpecificDate, &cs.AvailableAt, &cs.PointsMultiplier, &cs.StartDate, &cs.EndDate, &cs.RecurrenceInterval, &cs.RecurrenceStart, &cs.DueBy, &cs.ExpiryPenalty, &cs.ExpiryPenaltyValue, &cs.CreatedAt); err != nil {
+		if err := rows.Scan(&cs.ID, &cs.ChoreID, &cs.AssignedTo, &cs.AssignmentType, &cs.FcfsGroupID, &cs.DayOfWeek, &cs.SpecificDate, &cs.AvailableAt, &cs.PointsMultiplier, &cs.StartDate, &cs.EndDate, &cs.RecurrenceInterval, &cs.RecurrenceStart, &cs.DueBy, &cs.ExpiryPenalty, &cs.ExpiryPenaltyValue, &cs.CreatedAt, &cs.ReminderAt); err != nil {
 			return nil, err
 		}
 		schedules = append(schedules, cs)
@@ -844,7 +876,7 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 		SELECT
 			cs.id, c.id, c.title, c.description, CASE WHEN c.is_home=1 THEN 'home' ELSE c.category END, c.icon, c.points_value, c.missed_penalty_value, c.estimated_minutes, c.requires_approval, c.requires_photo, c.photo_source,
 			cs.assignment_type, cs.available_at, cs.due_by, cs.expiry_penalty, cs.expiry_penalty_value,
-			cs.day_of_week, cs.specific_date,
+			cs.day_of_week, cs.specific_date, cs.reminder_at,
 			cc.id, cc.completed_by, cc.completed_at, cc.photo_url, cc.status, cc.ai_feedback,
 			c.tts_audio_url,
 			(SELECT u2.name FROM chore_completions cc2
@@ -910,7 +942,7 @@ func (s *Store) GetScheduledChoresForUser(ctx context.Context, userID int64, dat
 			if err := rows.Scan(&sc.ScheduleID, &sc.ChoreID, &sc.Title, &sc.Description, &sc.Category, &sc.Icon,
 				&sc.PointsValue, &sc.MissedPenaltyValue, &sc.EstimatedMinutes, &reqApp, &reqPho, &sc.PhotoSource, &sc.AssignmentType, &sc.AvailableAt, &sc.DueBy,
 				&sc.ExpiryPenalty, &sc.ExpiryPenaltyValue,
-				&dayOfWeek, &specificDate,
+				&dayOfWeek, &specificDate, &sc.ReminderAt,
 				&compID, &completedBy, &completedAt, &photoURL, &compStatus, &aiFeedback,
 				&sc.TTSAudioURL, &siblingName); err != nil {
 				rows.Close()
@@ -1348,32 +1380,92 @@ func (s *Store) ReverseAutoContributeReversals(ctx context.Context, completionID
 func (s *Store) GetSchedule(ctx context.Context, id int64) (*model.ChoreSchedule, error) {
 	cs := &model.ChoreSchedule{}
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, chore_id, assigned_to, assignment_type, fcfs_group_id, day_of_week, specific_date, available_at, points_multiplier, start_date, end_date, recurrence_interval, recurrence_start, due_by, expiry_penalty, expiry_penalty_value, created_at
+		`SELECT id, chore_id, assigned_to, assignment_type, fcfs_group_id, day_of_week, specific_date, available_at, points_multiplier, start_date, end_date, recurrence_interval, recurrence_start, due_by, expiry_penalty, expiry_penalty_value, created_at, reminder_at
 		 FROM chore_schedules WHERE id = ?`, id).
-		Scan(&cs.ID, &cs.ChoreID, &cs.AssignedTo, &cs.AssignmentType, &cs.FcfsGroupID, &cs.DayOfWeek, &cs.SpecificDate, &cs.AvailableAt, &cs.PointsMultiplier, &cs.StartDate, &cs.EndDate, &cs.RecurrenceInterval, &cs.RecurrenceStart, &cs.DueBy, &cs.ExpiryPenalty, &cs.ExpiryPenaltyValue, &cs.CreatedAt)
+		Scan(&cs.ID, &cs.ChoreID, &cs.AssignedTo, &cs.AssignmentType, &cs.FcfsGroupID, &cs.DayOfWeek, &cs.SpecificDate, &cs.AvailableAt, &cs.PointsMultiplier, &cs.StartDate, &cs.EndDate, &cs.RecurrenceInterval, &cs.RecurrenceStart, &cs.DueBy, &cs.ExpiryPenalty, &cs.ExpiryPenaltyValue, &cs.CreatedAt, &cs.ReminderAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	return cs, err
 }
 
+func (s *Store) UpdateScheduleReminder(ctx context.Context, id int64, reminderAt *string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var oldReminder sql.NullString
+	if err := tx.QueryRowContext(ctx, `SELECT reminder_at FROM chore_schedules WHERE id = ?`, id).Scan(&oldReminder); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE chore_schedules SET reminder_at = ? WHERE id = ?`, reminderAt, id); err != nil {
+		return err
+	}
+	if reminderValue(oldReminder) != reminderPointerValue(reminderAt) {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM push_reminder_deliveries WHERE schedule_id = ?`, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
 
+func (s *Store) SavePushSubscription(ctx context.Context, sub *model.PushSubscription) error {
+	_, err := s.db.ExecContext(ctx, `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, timezone) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id, p256dh=excluded.p256dh, auth=excluded.auth, timezone=excluded.timezone`,
+		sub.UserID, sub.Endpoint, sub.P256dh, sub.Auth, sub.Timezone)
+	return err
+}
 
+func (s *Store) DeletePushSubscription(ctx context.Context, userID int64, endpoint string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?`, userID, endpoint)
+	return err
+}
 
+func (s *Store) HasPushSubscription(ctx context.Context, userID int64, endpoint string) (bool, error) {
+	var exists bool
+	err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM push_subscriptions WHERE user_id=? AND endpoint=?)`, userID, endpoint).Scan(&exists)
+	return exists, err
+}
 
+func (s *Store) CountPushSubscriptions(ctx context.Context, userID int64) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM push_subscriptions WHERE user_id=?`, userID).Scan(&count)
+	return count, err
+}
 
+func (s *Store) ListPushSubscriptions(ctx context.Context) ([]model.PushSubscription, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, user_id, endpoint, p256dh, auth, timezone FROM push_subscriptions`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var subs []model.PushSubscription
+	for rows.Next() {
+		var sub model.PushSubscription
+		if err := rows.Scan(&sub.ID, &sub.UserID, &sub.Endpoint, &sub.P256dh, &sub.Auth, &sub.Timezone); err != nil {
+			return nil, err
+		}
+		subs = append(subs, sub)
+	}
+	return subs, rows.Err()
+}
 
+func (s *Store) PushReminderSent(ctx context.Context, subscriptionID, scheduleID int64, date string) (bool, error) {
+	var exists bool
+	err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM push_reminder_deliveries WHERE subscription_id=? AND schedule_id=? AND reminder_date=?)`, subscriptionID, scheduleID, date).Scan(&exists)
+	return exists, err
+}
 
+func (s *Store) RecordPushReminder(ctx context.Context, subscriptionID, scheduleID int64, date string) error {
+	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO push_reminder_deliveries (subscription_id, schedule_id, reminder_date) VALUES (?, ?, ?)`, subscriptionID, scheduleID, date)
+	return err
+}
 
-
-
-
-
-
-
-
-
-
+func (s *Store) DeletePushSubscriptionByID(ctx context.Context, id int64) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM push_subscriptions WHERE id=?`, id)
+	return err
+}
 
 // GetCompletionForScheduleDate returns the completion row for a schedule+date,
 // INCLUDING soft-deleted (uncompleted_at != NULL) rows so the complete-flow

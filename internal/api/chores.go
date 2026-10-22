@@ -508,6 +508,7 @@ type createScheduleRequest struct {
 	EndDate            *string `json:"end_date"`
 	RecurrenceInterval *int    `json:"recurrence_interval"`
 	RecurrenceStart    *string `json:"recurrence_start"`
+	ReminderAt         *string `json:"reminder_at"`
 }
 
 func (h *ChoreHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
@@ -571,6 +572,12 @@ func (h *ChoreHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "expiry_penalty_value must be positive for penalty mode")
 		return
 	}
+	if req.ReminderAt != nil && *req.ReminderAt != "" {
+		if _, err := time.Parse("15:04", *req.ReminderAt); err != nil {
+			writeError(w, http.StatusBadRequest, "reminder_at must be a time in HH:MM format")
+			return
+		}
+	}
 
 	schedule := &model.ChoreSchedule{
 		ChoreID:            choreID,
@@ -580,6 +587,7 @@ func (h *ChoreHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 		SpecificDate:       req.SpecificDate,
 		AvailableAt:        req.AvailableAt,
 		DueBy:              req.DueBy,
+		ReminderAt:         req.ReminderAt,
 		ExpiryPenalty:      req.ExpiryPenalty,
 		ExpiryPenaltyValue: req.ExpiryPenaltyValue,
 		PointsMultiplier:   req.PointsMultiplier,
@@ -595,9 +603,105 @@ func (h *ChoreHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, schedule)
 }
 
+func (h *ChoreHandler) UpdateScheduleReminder(w http.ResponseWriter, r *http.Request) {
+	id, err := urlParamInt64(r, "scheduleID")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid schedule id")
+		return
+	}
+	var req struct {
+		ReminderAt *string `json:"reminder_at"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.ReminderAt != nil && *req.ReminderAt != "" {
+		if _, err := time.Parse("15:04", *req.ReminderAt); err != nil {
+			writeError(w, http.StatusBadRequest, "reminder_at must be a time in HH:MM format")
+			return
+		}
+	} else {
+		req.ReminderAt = nil
+	}
+	if err := h.store.UpdateScheduleReminder(r.Context(), id, req.ReminderAt); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update reminder")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
 
-
-
+func (h *ChoreHandler) UpdateSchedule(w http.ResponseWriter, r *http.Request) {
+	id, err := urlParamInt64(r, "scheduleID")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid schedule id")
+		return
+	}
+	current, err := h.store.GetSchedule(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get schedule")
+		return
+	}
+	if current == nil {
+		writeError(w, http.StatusNotFound, "schedule not found")
+		return
+	}
+	var req createScheduleRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.AssignedTo == 0 || (req.DayOfWeek == nil && req.SpecificDate == nil && req.RecurrenceInterval == nil) {
+		writeError(w, http.StatusBadRequest, "assigned_to and a schedule date or recurrence are required")
+		return
+	}
+	if req.DayOfWeek != nil && (*req.DayOfWeek < 0 || *req.DayOfWeek > 6) {
+		writeError(w, http.StatusBadRequest, "day_of_week must be between 0 and 6")
+		return
+	}
+	if req.RecurrenceInterval != nil && (*req.RecurrenceInterval < 1 || req.RecurrenceStart == nil || *req.RecurrenceStart == "") {
+		writeError(w, http.StatusBadRequest, "recurrence interval and start date are required")
+		return
+	}
+	if req.ExpiryPenalty == "" {
+		req.ExpiryPenalty = model.ExpiryBlock
+	}
+	if req.ExpiryPenalty != model.ExpiryBlock && req.ExpiryPenalty != model.ExpiryNoPoints && req.ExpiryPenalty != model.ExpiryPenalty {
+		writeError(w, http.StatusBadRequest, "expiry_penalty must be block, no_points, or penalty")
+		return
+	}
+	if req.ExpiryPenalty == model.ExpiryPenalty && req.ExpiryPenaltyValue <= 0 {
+		writeError(w, http.StatusBadRequest, "expiry_penalty_value must be positive for penalty mode")
+		return
+	}
+	for name, value := range map[string]*string{"available_at": req.AvailableAt, "due_by": req.DueBy, "reminder_at": req.ReminderAt} {
+		if value != nil && *value != "" {
+			if _, err := time.Parse("15:04", *value); err != nil {
+				writeError(w, http.StatusBadRequest, name+" must be a time in HH:MM format")
+				return
+			}
+		}
+	}
+	if req.AssignmentType == "" {
+		req.AssignmentType = current.AssignmentType
+	}
+	if req.PointsMultiplier == 0 {
+		req.PointsMultiplier = current.PointsMultiplier
+	}
+	updated := &model.ChoreSchedule{
+		ID: id, ChoreID: current.ChoreID, AssignedTo: req.AssignedTo, AssignmentType: req.AssignmentType,
+		FcfsGroupID: current.FcfsGroupID, DayOfWeek: req.DayOfWeek, SpecificDate: req.SpecificDate,
+		AvailableAt: req.AvailableAt, PointsMultiplier: req.PointsMultiplier, StartDate: req.StartDate,
+		EndDate: req.EndDate, RecurrenceInterval: req.RecurrenceInterval, RecurrenceStart: req.RecurrenceStart,
+		DueBy: req.DueBy, ReminderAt: req.ReminderAt, ExpiryPenalty: req.ExpiryPenalty,
+		ExpiryPenaltyValue: req.ExpiryPenaltyValue,
+	}
+	if err := h.store.UpdateSchedule(r.Context(), updated); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update schedule")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
 
 func (h *ChoreHandler) ListSchedules(w http.ResponseWriter, r *http.Request) {
 	choreID, err := urlParamInt64(r, "id")

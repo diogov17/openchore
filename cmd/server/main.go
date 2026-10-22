@@ -13,6 +13,7 @@ import (
 	msqlite "github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/liftedkilt/openchore/internal/api"
+	"github.com/liftedkilt/openchore/internal/push"
 	"github.com/liftedkilt/openchore/internal/config"
 	"github.com/liftedkilt/openchore/internal/store"
 	"github.com/liftedkilt/openchore/internal/tts"
@@ -21,6 +22,7 @@ import (
 )
 
 func main() {
+	// Read runtime settings, using local defaults for development.
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
 		dbPath = "openchore.db"
@@ -30,6 +32,7 @@ func main() {
 		port = "8080"
 	}
 
+	// Open SQLite, keep writes serialized, and apply schema updates before use.
 	db, err := sql.Open("sqlite", dbPath+"?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
@@ -41,6 +44,7 @@ func main() {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
 
+	// Create the store and load optional initial configuration.
 	s := store.New(db)
 
 	// Load and apply config file (only populates an empty database)
@@ -58,13 +62,14 @@ func main() {
 		}
 	}
 
+	// Retire an unused legacy passcode and prepare webhook delivery.
 	if err := api.RetireLegacyPasscodeIfUnused(context.Background(), s); err != nil {
 		log.Printf("auth: could not check legacy admin passcode: %v", err)
 	}
 
 	dispatcher := webhook.NewDispatcher(s)
 
-	// Start background checkers
+	// Start scheduled maintenance, reminders, and points processing.
 	expiryChecker := webhook.NewExpiryChecker(s, dispatcher)
 	go expiryChecker.Start(context.Background())
 	decayChecker := webhook.NewDecayChecker(s, dispatcher)
@@ -82,6 +87,8 @@ func main() {
 		}
 	}
 	go pointsDecayChecker.Start(context.Background())
+	pushChecker := push.NewReminderChecker(s)
+	go pushChecker.Start(context.Background())
 
 	// Webhook delivery log cleanup (issue #18): bounded retention for webhook_deliveries.
 	deliveryCleaner := webhook.NewDeliveryCleaner(
@@ -91,6 +98,7 @@ func main() {
 	)
 	go deliveryCleaner.Start(context.Background())
 
+	// Configure sessions and external identity providers before building routes.
 	authCfg, err := config.ResolveAuth(cfg)
 	if err != nil {
 		log.Fatalf("invalid auth config: %v", err)
@@ -109,6 +117,7 @@ func main() {
 		log.Fatalf("failed to load sign-in settings: %v", err)
 	}
 
+	// Build the HTTP routes and connect optional AI, audio, and report jobs.
 	router, choreHandler, reportsHandler := api.NewRouter(s, dispatcher, api.Auth{Sessions: sessions, OIDC: oidcSvc})
 
 	// Optional AI and read-aloud audio: off unless a base URL is set, either
@@ -128,6 +137,7 @@ func main() {
 	}()
 	go reportsHandler.StartWeeklySummaries(context.Background())
 
+	// Start serving requests; this blocks until the server exits.
 	log.Printf("starting server on :%s", port)
 	if err := http.ListenAndServe(":"+port, router); err != nil {
 		log.Fatalf("server failed: %v", err)
@@ -135,6 +145,7 @@ func main() {
 }
 
 func runMigrations(db *sql.DB) error {
+	// Connect the embedded migration files to the SQLite database.
 	driver, err := msqlite.WithInstance(db, &msqlite.Config{})
 	if err != nil {
 		return fmt.Errorf("creating migration driver: %w", err)

@@ -109,6 +109,18 @@ export interface LoginRequest {
 }
 
 export const api = {
+  push: {
+    publicKey: () => fetchPublic<{ public_key: string }>('/push/public-key'),
+    subscribe: (subscription: PushSubscriptionJSON, timezone: string) => fetchWithAuth('/push/subscription', {
+      method: 'POST', body: JSON.stringify({ ...subscription, timezone }),
+    }),
+    status: (endpoint: string) => fetchWithAuth<{ enabled: boolean; device_count: number }>('/push/subscription/status', {
+      method: 'POST', body: JSON.stringify({ endpoint }),
+    }),
+    unsubscribe: (endpoint: string) => fetchWithAuth('/push/subscription', {
+      method: 'DELETE', body: JSON.stringify({ endpoint }),
+    }),
+  },
   auth: {
     login: (req: LoginRequest) =>
       fetchPublic<AuthSession>('/auth/login', { method: 'POST', body: JSON.stringify(req) }),
@@ -251,6 +263,10 @@ export const api = {
       }),
     deleteSchedule: (choreId: number, scheduleId: number) =>
       fetchWithAuth(`/chores/${choreId}/schedules/${scheduleId}`, { method: 'DELETE' }),
+    updateSchedule: (scheduleId: number, data: Partial<ChoreSchedule>) =>
+      fetchWithAuth(`/schedules/${scheduleId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    updateScheduleReminder: (scheduleId: number, reminder_at: string) =>
+      fetchWithAuth(`/schedules/${scheduleId}/reminder`, { method: 'PUT', body: JSON.stringify({ reminder_at }) }),
     regenerateTTS: (choreId: number) =>
       fetchWithAuth<{ tts_audio_url: string }>(`/chores/${choreId}/tts/regenerate`, { method: 'POST' }),
   },

@@ -11,6 +11,8 @@ export interface ChoreRowProps {
   /** A line icon name, or the chore's DB icon (emoji); resolved via resolveChoreIcon. */
   icon?: string | null;
   title: string;
+  /** Scheduled phone reminder time, already formatted for the active locale. */
+  reminderAt?: string;
   /** A time window, a countdown or a status line. Waiting/locked have defaults. */
   meta?: React.ReactNode;
   /** Appended to the meta line as "· 10 pts". */
@@ -48,26 +50,32 @@ export interface ChoreRowProps {
  */
 export function ChoreRow({
   cat = 'daily', icon, title, meta, points, state = 'todo', urgent, photo, readAloud,
-  onToggle, onReadAloud, checkLabel, busy, actions, readOnly, className, id,
+  reminderAt, onToggle, onReadAloud, checkLabel, busy, actions, readOnly, className, id,
 }: ChoreRowProps) {
   const { t } = useTranslation();
   const iconName = resolveChoreIcon(icon, cat);
   const checked = state === 'done' || state === 'waiting';
   const locked = state === 'locked';
+  const reminder = reminderAt ? (
+    <span className="oc-chore__reminder">
+      <Icon name="clock" /> {t('kid.chore.reminderAt', { time: reminderAt })}
+    </span>
+  ) : null;
 
   let metaLine: React.ReactNode;
   if (state === 'waiting') {
-    metaLine = <span className="oc-chore__waiting">{meta ?? t('design.chore.waiting')}</span>;
+    metaLine = <><span className="oc-chore__waiting">{meta ?? t('design.chore.waiting')}</span>{reminder}</>;
   } else if (locked) {
-    metaLine = meta ?? t('design.chore.locked');
+    metaLine = <>{meta ?? t('design.chore.locked')}{reminder}</>;
   } else {
     const pts = points != null ? t('design.chore.points', { count: points }) : null;
-    if (meta != null || pts || photo) {
+    if (meta != null || pts || photo || reminder) {
       metaLine = (
         <>
           {photo && <Icon name="camera" />}
           {meta != null && (urgent ? <span className="oc-chore__urgent">{meta}</span> : <span>{meta}</span>)}
           {pts && <span>{meta != null ? `· ${pts}` : pts}</span>}
+          {reminder}
         </>
       );
     }

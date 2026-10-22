@@ -196,6 +196,7 @@ type ChoreSchedule struct {
 	RecurrenceInterval *int    `json:"recurrence_interval,omitempty"`
 	RecurrenceStart    *string `json:"recurrence_start,omitempty"`
 	DueBy              *string `json:"due_by,omitempty"`
+	ReminderAt         *string `json:"reminder_at,omitempty"`
 	ExpiryPenalty      string  `json:"expiry_penalty"`
 	ExpiryPenaltyValue int     `json:"expiry_penalty_value"`
 	CreatedAt          string  `json:"created_at"`
@@ -432,6 +433,7 @@ type ScheduledChore struct {
 	AssignmentType     string     `json:"assignment_type"`
 	AvailableAt        *string    `json:"available_at,omitempty"`
 	DueBy              *string    `json:"due_by,omitempty"`
+	ReminderAt         *string    `json:"reminder_at,omitempty"`
 	ExpiryPenalty      string     `json:"expiry_penalty"`
 	ExpiryPenaltyValue int        `json:"expiry_penalty_value"`
 	Available          bool       `json:"available"`
@@ -449,7 +451,14 @@ type ScheduledChore struct {
 	Date               string     `json:"date"`
 }
 
-
+type PushSubscription struct {
+	ID       int64
+	UserID   int64
+	Endpoint string
+	P256dh   string
+	Auth     string
+	Timezone string
+}
 
 // AIReviewResult is an AI photo review: advice for a parent, never a verdict.
 type AIReviewResult struct {

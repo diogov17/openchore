@@ -8,6 +8,10 @@ import './styles/globals.css';
 import './design';
 import './i18n';
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { void navigator.serviceWorker.register('/service-worker.js'); });
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>

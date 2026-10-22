@@ -35,6 +35,7 @@ interface ScheduleData {
   specificDate: string;
   availableAt: string;
   dueBy: string;
+  reminderAt: string;
   expiryPenalty: 'block' | 'no_points' | 'penalty';
   expiryPenaltyValue: number;
 }
@@ -60,7 +61,7 @@ const defaultScheduleData: ScheduleData = {
   shared: false, selectedUsers: [], scheduleType: 'weekly', selectedDays: [],
   interval: 2, intervalStart: localDateStr(new Date()),
   specificDate: localDateStr(new Date()),
-  availableAt: '', dueBy: '', expiryPenalty: 'block', expiryPenaltyValue: 5,
+  availableAt: '', dueBy: '', reminderAt: '', expiryPenalty: 'block', expiryPenaltyValue: 5,
 };
 
 const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users }) => {
@@ -161,6 +162,7 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
           assignment_type: schedule.shared ? 'family' : 'individual',
           available_at: schedule.availableAt || undefined,
           due_by: schedule.dueBy || undefined,
+          reminder_at: schedule.reminderAt || undefined,
           points_multiplier: 1,
           ...penaltyFields,
         };
@@ -357,6 +359,11 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
         </label>
       </div>
 
+      <label className={styles.formGroup}>
+        <span className={styles.label}>{t('admin.scheduleManager.labelReminderAt')}</span>
+        <input className={styles.input} type="time" value={schedule.reminderAt} onChange={e => setSchedule(s => ({ ...s, reminderAt: e.target.value }))} />
+        <span className={styles.helpText}>{t('admin.scheduleManager.helpReminderAt')}</span>
+      </label>
 
       {schedule.dueBy && (
         <div className={styles.formRow}>
@@ -468,6 +475,12 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
                 <div className={styles.reviewRow}>
                   <dt className={styles.reviewLabel}>{t('admin.createChore.review.dueBy')}</dt>
                   <dd className={styles.reviewValue}>{schedule.dueBy}</dd>
+                </div>
+              )}
+              {schedule.reminderAt && (
+                <div className={styles.reviewRow}>
+                  <dt className={styles.reviewLabel}>{t('admin.scheduleManager.labelReminderAt')}</dt>
+                  <dd className={styles.reviewValue}>{schedule.reminderAt}</dd>
                 </div>
               )}
             </dl>

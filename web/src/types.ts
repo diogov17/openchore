@@ -201,6 +201,7 @@ export interface ChoreSchedule {
   specific_date?: string;
   available_at?: string;
   due_by?: string;
+  reminder_at?: string;
   expiry_penalty: 'block' | 'no_points' | 'penalty';
   expiry_penalty_value: number;
   points_multiplier: number;
@@ -337,6 +338,7 @@ export interface ScheduledChore {
   assignment_type: string;
   available_at?: string;
   due_by?: string;
+  reminder_at?: string;
   expiry_penalty: 'block' | 'no_points' | 'penalty';
   expiry_penalty_value: number;
   available: boolean;

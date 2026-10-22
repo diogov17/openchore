@@ -35,6 +35,7 @@ func NewRouter(s *store.Store, dispatcher *webhook.Dispatcher, auth Auth) (*chi.
 	triggers := NewTriggerHandler(s)
 	tokens := NewTokenHandler(s)
 	setup := NewSetupHandler(s, auth.Sessions)
+	push := NewPushHandler(s)
 	reports := NewReportsHandler(s, dispatcher, discordNotifier, aiSvc)
 	authH := NewAuthHandler(s, auth.Sessions, dispatcher, auth.OIDC)
 	oidcH := auth.OIDC
@@ -66,6 +67,7 @@ func NewRouter(s *store.Store, dispatcher *webhook.Dispatcher, auth Auth) (*chi.
 		r.Post("/auth/logout", authH.Logout)
 		r.Get("/auth/providers", oidcH.Providers)
 		r.Get("/auth/options", oidcH.SignInOptions)
+		r.Get("/push/public-key", push.PublicKey)
 		r.Get("/auth/oidc/{provider}/start", oidcH.Start)
 		r.Get("/auth/oidc/{provider}/callback", oidcH.Callback)
 
@@ -80,6 +82,9 @@ func NewRouter(s *store.Store, dispatcher *webhook.Dispatcher, auth Auth) (*chi.
 			r.Use(RequireUserOrToken(s, auth.Sessions))
 
 			r.Get("/home/assigned", chores.ListMyAssignedHomeChores)
+			r.Post("/push/subscription", push.Subscribe)
+			r.Post("/push/subscription/status", push.Status)
+			r.Delete("/push/subscription", push.Unsubscribe)
 			r.Post("/home/assigned/{id}/complete", chores.CompleteAssignedHomeBacklog)
 			r.Delete("/home/assigned/{id}/complete", chores.UncompleteAssignedHomeBacklog)
 			r.Get("/auth/me", authH.Me)
@@ -144,6 +149,8 @@ func NewRouter(s *store.Store, dispatcher *webhook.Dispatcher, auth Auth) (*chi.
 				r.Get("/chores/{id}/schedules", chores.ListSchedules)
 				r.Post("/chores/{id}/schedules", chores.CreateSchedule)
 				r.Delete("/chores/{id}/schedules/{scheduleID}", chores.DeleteSchedule)
+				r.Put("/schedules/{scheduleID}", chores.UpdateSchedule)
+				r.Put("/schedules/{scheduleID}/reminder", chores.UpdateScheduleReminder)
 				r.Post("/schedules/{scheduleID}/excuse", chores.Excuse)
 
 				// Chore triggers

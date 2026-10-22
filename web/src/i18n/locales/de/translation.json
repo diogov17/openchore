@@ -477,7 +477,10 @@
       "userFallback": "Benutzer {{id}}",
       "btnEdit": "Bearbeiten",
       "btnSave": "Zeitplan speichern",
-      "btnSaving": "Wird gespeichert..."
+      "btnSaving": "Wird gespeichert...",
+      "editDaysCountHint": "Beim Bearbeiten dieses Wochenplans muss die Anzahl der ausgewählten Tage gleich bleiben.",
+      "helpReminderAt": "Sendet eine Handy-Benachrichtigung, wenn die Aufgabe noch offen ist",
+      "labelReminderAt": "Handy-Erinnerung"
     },
     "settingsTab": {
       "ai": {
@@ -990,7 +993,8 @@
       "readonlyDone": "Erledigt",
       "readonlyTodo": "Nicht erledigt",
       "rejected": "Nicht angenommen. Versuch es noch mal",
-      "uploadPhotoProof": "Foto als Nachweis hinzufügen"
+      "uploadPhotoProof": "Foto als Nachweis hinzufügen",
+      "reminderAt": "Erinnerung {{time}}"
     },
     "colors": {
       "butter": "Butter",
@@ -1066,7 +1070,15 @@
       "shuffle": "Mischen",
       "signOut": "Abmelden",
       "skin": "Dein Look",
-      "title": "Ich"
+      "title": "Ich",
+      "pushReminders": "Aufgabenerinnerungen auf diesem Handy",
+      "pushRemindersDevices_one": "Benachrichtigungen dieses Profils auf {{count}} Gerät aktiviert",
+      "pushRemindersDevices_other": "Benachrichtigungen dieses Profils auf {{count}} Geräten aktiviert",
+      "pushRemindersOtherDevices_one": "{{count}} weiteres Gerät ist registriert. Aktiviere Erinnerungen hier, um dieses Gerät hinzuzufügen.",
+      "pushRemindersOtherDevices_other": "{{count}} weitere Geräte sind registriert. Aktiviere Erinnerungen hier, um dieses Gerät hinzuzufügen.",
+      "pushRemindersHint": "Benachrichtigungen für geplante Aufgaben erlauben",
+      "pushError": "Benachrichtigungen konnten nicht aktiviert werden. Browser-Berechtigung und Servereinstellungen prüfen.",
+      "pushUnavailable": "Öffne OpenChore über HTTPS in einem Browser mit Push-Benachrichtigungen."
     },
     "paused": {
       "text": "Genieß die freie Zeit. Deine Aufgaben ruhen, und solange du weg bist, gehen keine Punkte verloren.",

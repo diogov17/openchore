@@ -60,6 +60,8 @@
 .oc-chore__meta .oc-icon { width: 14px; height: 14px; }
 .oc-chore__urgent { color: var(--row-meta, var(--urgent)); font-weight: 700; }
 .oc-chore__waiting { color: var(--row-meta, var(--waiting)); font-weight: 600; }
+.oc-chore__reminder { display: inline-flex; align-items: center; gap: 3px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--row-ink) 7%, transparent); color: var(--row-meta, var(--ink-muted)); font-size: 12px; line-height: 18px; font-weight: 650; white-space: nowrap; }
+.oc-chore__reminder .oc-icon { width: 13px; height: 13px; }
 .oc-chore__actions { display: flex; align-items: center; gap: 8px; flex: none; }
 
 /* Buttons inside a row: 44px targets around smaller visuals. */

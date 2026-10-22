@@ -53,6 +53,12 @@ describe('ChoreRow', () => {
     render(<ChoreRow title="A" checkLabel="Als erledigt markieren" />);
     expect(screen.getByRole('button', { name: 'Als erledigt markieren' })).toBeTruthy();
   });
+
+  it('shows the scheduled reminder time in the chore row', () => {
+    const { container } = render(<ChoreRow title="Take out bins" reminderAt="8:30 AM" />);
+    expect(screen.getByText('Reminder 8:30 AM')).toBeTruthy();
+    expect(container.querySelector('.oc-chore__reminder svg')).toBeTruthy();
+  });
 });
 
 describe('TabBar', () => {

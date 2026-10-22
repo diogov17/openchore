@@ -477,7 +477,10 @@
       "userFallback": "User {{id}}",
       "btnEdit": "Edit",
       "btnSave": "Save schedule",
-      "btnSaving": "Saving..."
+      "btnSaving": "Saving...",
+      "editDaysCountHint": "Keep the same number of selected days while editing this weekly schedule.",
+      "helpReminderAt": "Sends a phone notification if the chore is still incomplete",
+      "labelReminderAt": "Phone reminder"
     },
     "settingsTab": {
       "ai": {
@@ -990,7 +993,8 @@
       "readonlyDone": "Done",
       "readonlyTodo": "Not done",
       "rejected": "Not accepted. Try again",
-      "uploadPhotoProof": "Add photo proof"
+      "uploadPhotoProof": "Add photo proof",
+      "reminderAt": "Reminder {{time}}"
     },
     "colors": {
       "butter": "Butter",
@@ -1066,7 +1070,15 @@
       "shuffle": "Shuffle",
       "signOut": "Sign out",
       "skin": "Your look",
-      "title": "Me"
+      "title": "Me",
+      "pushReminders": "Chore reminders on this phone",
+      "pushRemindersHint": "Allow notifications for scheduled chores",
+      "pushRemindersDevices_one": "Notifications enabled on {{count}} device for this profile",
+      "pushRemindersDevices_other": "Notifications enabled on {{count}} devices for this profile",
+      "pushRemindersOtherDevices_one": "{{count}} other device is registered. Turn reminders on here to add this device.",
+      "pushRemindersOtherDevices_other": "{{count}} other devices are registered. Turn reminders on here to add this device.",
+      "pushError": "Could not enable notifications. Check browser permission and server setup.",
+      "pushUnavailable": "Open OpenChore over HTTPS in a browser that supports push notifications."
     },
     "paused": {
       "text": "Enjoy your time off. Your chores are paused and no points are taken away while you're away.",
