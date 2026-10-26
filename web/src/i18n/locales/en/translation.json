@@ -1,5 +1,14 @@
 {
   "chores": {
+    "typeHelp": {
+      "title": "About chore types",
+      "required": "Must-do responsibilities. Completing these unlocks Every day points and helps unlock Bonus chores.",
+      "core": "Regular responsibilities. Points are awarded once all Must do chores are complete.",
+      "bonus": "Optional extras that become available after all Must do and Every day chores are complete.",
+      "independent": "Standalone chores that do not affect other chore types. Their points do not wait for other chores.",
+      "home": "Household chores, scheduled or kept in the backlog, outside the daily unlocking rules.",
+      "schedule": "The type controls reward rules. Choose the schedule separately. By default, unfinished chores stay until completed."
+    },
     "recordedFor": "For {{date}}",
     "add": "Add chore",
     "name": "Chore name",

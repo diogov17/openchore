@@ -1,5 +1,14 @@
 {
   "chores": {
+    "typeHelp": {
+      "title": "Aufgabenarten erklärt",
+      "required": "Pflichtaufgaben. Ihre Erledigung schaltet die Punkte für tägliche Aufgaben frei und hilft, Bonusaufgaben freizuschalten.",
+      "core": "Regelmäßige Aufgaben. Die Punkte werden vergeben, sobald alle Pflichtaufgaben erledigt sind.",
+      "bonus": "Freiwillige Extras, die verfügbar werden, wenn alle Pflichtaufgaben und täglichen Aufgaben erledigt sind.",
+      "independent": "Eigenständige Aufgaben ohne Einfluss auf andere Aufgabenarten. Ihre Punkte warten nicht auf andere Aufgaben.",
+      "home": "Haushaltsaufgaben mit Zeitplan oder im Vorrat, unabhängig von den täglichen Freischaltregeln.",
+      "schedule": "Die Art bestimmt die Punkteregeln. Den Zeitplan wählst du separat. Standardmäßig bleiben offene Aufgaben bis zur Erledigung bestehen."
+    },
     "recordedFor": "Für {{date}}",
     "add": "Aufgabe hinzufügen",
     "name": "Name der Aufgabe",

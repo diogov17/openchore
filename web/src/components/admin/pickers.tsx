@@ -7,6 +7,7 @@ import {
 } from '../../design';
 import type { User } from '../../types';
 import styles from './pickers.module.css';
+import { ChoreTypeHelp } from '../ChoreTypeHelp';
 
 /** UI glyphs that make no sense as a chore or reward icon. */
 const NOT_FOR_CHORES = new Set<IconName>(['back', 'chev', 'plus']);
@@ -112,7 +113,7 @@ export function CategoryPicker({ value, onChange, label }: { value: ChoreCategor
   const name = useId();
   return (
     <fieldset className={styles.fieldset}>
-      <legend className={styles.label}>{label}</legend>
+      <ChoreTypeHelp title={label} legend />
       <div className={styles.segmented}>
         {CHORE_CATEGORIES.map((c) => {
           const cat = catFromCategory(c);
