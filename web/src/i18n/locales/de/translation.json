@@ -1,4 +1,25 @@
 {
+  "calendar": {
+    "title": "Google Kalender",
+    "settingsHelp": "Verbinde dein Google-Konto und wähle den Kalender für Aufgaben. Die Verbindung gehört zu deinem Profil.",
+    "loadError": "Google Kalender konnte nicht geladen werden. Schließe die Ansicht und öffne sie erneut.",
+    "notConfigured": "Google Kalender muss zuerst einmalig vom Serverbetreiber eingerichtet werden.",
+    "reconnectHelp": "Verbinde dein Google-Konto erneut, um den Kalenderzugriff wiederherzustellen.",
+    "connect": "Google-Konto verbinden",
+    "reconnect": "Google-Konto erneut verbinden",
+    "disconnect": "Trennen",
+    "connected": "Dein Google-Konto ist verbunden.",
+    "defaultCalendar": "Standardkalender",
+    "add": "Zu Google Kalender hinzufügen",
+    "connectFirst": "Verbinde Google Kalender zuerst unter Ich → Einstellungen.",
+    "chosenCalendar": "Kalender: {{name}}",
+    "assigneesHelp": "Erstellt die Aufgabe im gewählten Google-Kalender jeder zugewiesenen Person. Jede Person verbindet ihr Konto unter Ich → Einstellungen. Gemeinsame Aufgaben erscheinen bei allen Erwachsenen.",
+    "creationHelp": "Wird eine Person entfernt, wird ihr Termin gelöscht. Zeitplanänderungen aktualisieren den Termin. Ohne Verfügbarkeitszeit ist er ganztägig. Fehlende Verbindungen und fehlgeschlagene Änderungen werden automatisch erneut versucht.",
+    "choreSaved": "Die Aufgabe ist mit Kalenderabgleich gespeichert. Einige Änderungen stehen noch aus. Versuche es jetzt erneut oder lasse OpenChore später automatisch fortfahren.",
+    "retry": "Kalendereintrag erneut versuchen",
+    "keepChore": "Fertig, später erneut versuchen",
+    "connectFailed": "Google Kalender wurde nicht verbunden. Versuche es erneut und erlaube beide Kalenderberechtigungen."
+  },
   "chores": {
     "deleteError": "Diese Aufgabe konnte nicht gelöscht werden. Bitte versuche es erneut.",
     "backToChore": "Zurück zur Aufgabe",

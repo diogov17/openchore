@@ -71,7 +71,13 @@ export const KidApp: React.FC = () => {
   }, [tab, data.refreshAll]);
 
   const [tts, setTts] = useState(() => (user ? readTts(user.id, user.age) : false));
-  const [meOpen, setMeOpen] = useState(false);
+  const [meOpen, setMeOpen] = useState(() => new URLSearchParams(window.location.search).has('calendar'));
+  useEffect(() => {
+    if (!searchParams.has('calendar')) return;
+    const params = new URLSearchParams(searchParams);
+    params.delete('calendar');
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [pinOpen, setPinOpen] = useState(false);
   const [linkedOpen, setLinkedOpen] = useState(false);
   const [photoChore, setPhotoChore] = useState<ScheduledChore | null>(null);

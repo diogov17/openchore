@@ -10,6 +10,7 @@ import type { User } from '../../types';
 import { api } from '../../api';
 import { Sheet } from './Sheet';
 import s from './kid.module.css';
+import { GoogleCalendarSettings } from '../../components/GoogleCalendarSettings';
 
 const AVATAR_STYLES = [
   'avataaars-neutral', 'adventurer-neutral', 'big-ears-neutral', 'bottts-neutral', 'fun-emoji', 'lorelei-neutral',
@@ -59,6 +60,7 @@ export function MeSheet(props: MeSheetProps) {
   const { user, skin, isAdmin, tts, onClose, onSkin, onColor, onTts, onPin, onLinked, onManage, onSignOut } = props;
   const { t, i18n } = useTranslation();
   const [picking, setPicking] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(() => new URLSearchParams(window.location.search).has('calendar'));
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushDeviceCount, setPushDeviceCount] = useState(0);
   const [pushBusy, setPushBusy] = useState(false);
@@ -116,6 +118,8 @@ export function MeSheet(props: MeSheetProps) {
   if (picking) {
     return <AvatarPicker user={user} onBack={() => setPicking(false)} onClose={onClose} onSave={props.onAvatar} />;
   }
+
+  if (calendarOpen) return <Sheet title={t('calendar.title')} onClose={() => setCalendarOpen(false)} leading={<button type="button" className={s.linkBtn} onClick={() => setCalendarOpen(false)} aria-label={t('admin.createChore.nav.back')}><Icon name="back" /></button>}><GoogleCalendarSettings /></Sheet>;
 
   return (
     <Sheet title={t('kid.me.title')} onClose={onClose}>
@@ -234,6 +238,12 @@ export function MeSheet(props: MeSheetProps) {
         <button type="button" className={s.settingRow} onClick={onLinked}>
           <Icon name="people" />
           <span className={s.settingText}>{t('kid.me.linkedAccounts')}</span>
+          <Icon name="chev" />
+        </button>
+
+        <button type="button" className={s.settingRow} onClick={() => setCalendarOpen(true)}>
+          <Icon name="cal" />
+          <span className={s.settingText}>{t('calendar.title')}</span>
           <Icon name="chev" />
         </button>
 

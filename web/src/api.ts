@@ -2,6 +2,14 @@ import type { User, PersonColor, AuthSession, AuthProvider, LinkedIdentity, Sche
 
 const API_BASE = '/api';
 
+export interface GoogleCalendarStatus {
+  configured: boolean;
+  connected: boolean;
+  calendar_id: string;
+  calendars: { id: string; summary: string; primary: boolean }[];
+  error?: string;
+}
+
 // Resize images client-side before uploading to avoid Nginx body size limits
 // and reduce upload time on mobile. Returns a JPEG file ≤ maxDim on longest side.
 function resizeImage(file: File, maxDim: number): Promise<File> {
@@ -109,6 +117,13 @@ export interface LoginRequest {
 }
 
 export const api = {
+  googleCalendar: {
+    status: () => fetchWithAuth<GoogleCalendarStatus>('/google-calendar'),
+    connect: () => fetchWithAuth<{ url: string }>('/google-calendar/connect', { method: 'POST' }),
+    select: (calendar_id: string) => fetchWithAuth('/google-calendar', { method: 'PUT', body: JSON.stringify({ calendar_id }) }),
+    disconnect: () => fetchWithAuth('/google-calendar', { method: 'DELETE' }),
+    add: (chore_id: number) => fetchWithAuth<{ added: number }>('/google-calendar/events', { method: 'POST', body: JSON.stringify({ chore_id, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' }) }),
+  },
   push: {
     publicKey: () => fetchPublic<{ public_key: string }>('/push/public-key'),
     subscribe: (subscription: PushSubscriptionJSON, timezone: string) => fetchWithAuth('/push/subscription', {

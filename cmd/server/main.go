@@ -13,8 +13,8 @@ import (
 	msqlite "github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/liftedkilt/openchore/internal/api"
-	"github.com/liftedkilt/openchore/internal/push"
 	"github.com/liftedkilt/openchore/internal/config"
+	"github.com/liftedkilt/openchore/internal/push"
 	"github.com/liftedkilt/openchore/internal/store"
 	"github.com/liftedkilt/openchore/internal/tts"
 	"github.com/liftedkilt/openchore/internal/webhook"
@@ -119,6 +119,7 @@ func main() {
 
 	// Build the HTTP routes and connect optional AI, audio, and report jobs.
 	router, choreHandler, reportsHandler := api.NewRouter(s, dispatcher, api.Auth{Sessions: sessions, OIDC: oidcSvc})
+	go choreHandler.StartCalendarSync(context.Background())
 
 	// Optional AI and read-aloud audio: off unless a base URL is set, either
 	// in the environment or under Manage → Settings → AI.

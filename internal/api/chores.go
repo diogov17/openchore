@@ -23,7 +23,8 @@ type ChoreHandler struct {
 	store      *store.Store
 	dispatcher *webhook.Dispatcher
 	discord    *discord.Notifier
-	aiSvc      *AIServices    // optional AI and read-aloud audio
+	aiSvc      *AIServices // optional AI and read-aloud audio
+	calendar   *GoogleCalendarHandler
 	reviews    sync.WaitGroup // in-flight background photo reviews
 }
 
@@ -477,6 +478,7 @@ func (h *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to update chore")
 		return
 	}
+	h.syncCalendar(r.Context(), existing.ID)
 	if audio := h.aiSvc.Audio(); audio != nil && (existing.TTSAudioURL == "" || tts.SpokenText(existing) != spokenBefore) {
 		audio.GenerateAsync(*existing)
 	}
@@ -493,6 +495,7 @@ func (h *ChoreHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to delete chore")
 		return
 	}
+	h.syncCalendar(r.Context(), id)
 	tts.Remove(id)
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -605,6 +608,7 @@ func (h *ChoreHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create schedule")
 		return
 	}
+	h.syncCalendar(r.Context(), choreID)
 	writeJSON(w, http.StatusCreated, schedule)
 }
 
@@ -705,6 +709,7 @@ func (h *ChoreHandler) UpdateSchedule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to update schedule")
 		return
 	}
+	h.syncCalendar(r.Context(), current.ChoreID)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -731,9 +736,17 @@ func (h *ChoreHandler) DeleteSchedule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid schedule id")
 		return
 	}
+	schedule, err := h.store.GetSchedule(r.Context(), scheduleID)
+	if err != nil {
+		writeError(w, 500, "failed to load schedule")
+		return
+	}
 	if err := h.store.DeleteSchedule(r.Context(), scheduleID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete schedule")
 		return
+	}
+	if schedule != nil {
+		h.syncCalendar(r.Context(), schedule.ChoreID)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

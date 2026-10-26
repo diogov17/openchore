@@ -67,6 +67,8 @@ manage everything from the admin panel — or wipe and re-seed with
 `./redeploy.sh --wipe`. Starting with no config at all drops you into a guided
 setup wizard instead.
 
+To add chores automatically to a personal Google Calendar, see [Google Calendar setup](docs/google-calendar.md).
+
 Want the AI extras? They are off by default. Point OpenChore at any
 OpenAI-compatible model — a local one from the compose profiles below, Ollama,
 or a hosted API — see [AI features](docs/ai.md):

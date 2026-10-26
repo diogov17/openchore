@@ -36,6 +36,9 @@ func NewRouter(s *store.Store, dispatcher *webhook.Dispatcher, auth Auth) (*chi.
 	tokens := NewTokenHandler(s)
 	setup := NewSetupHandler(s, auth.Sessions)
 	push := NewPushHandler(s)
+	calendar := NewGoogleCalendarHandler(s, auth.Sessions)
+	chores.calendar = calendar
+	users.calendar = calendar
 	reports := NewReportsHandler(s, dispatcher, discordNotifier, aiSvc)
 	authH := NewAuthHandler(s, auth.Sessions, dispatcher, auth.OIDC)
 	oidcH := auth.OIDC
@@ -76,6 +79,16 @@ func NewRouter(s *store.Store, dispatcher *webhook.Dispatcher, auth Auth) (*chi.
 
 		// Initial setup (only works when no users exist)
 		r.Post("/setup", setup.Setup)
+
+		r.Group(func(r chi.Router) {
+			r.Use(RequireSession(s, auth.Sessions))
+			r.Get("/google-calendar", calendar.Status)
+			r.Post("/google-calendar/connect", calendar.Connect)
+			r.Get("/google-calendar/callback", calendar.Callback)
+			r.Put("/google-calendar", calendar.Select)
+			r.Delete("/google-calendar", calendar.Disconnect)
+			r.Post("/google-calendar/events", calendar.AddEvents)
+		})
 
 		// Authenticated routes (session cookie, session bearer, or API token)
 		r.Group(func(r chi.Router) {

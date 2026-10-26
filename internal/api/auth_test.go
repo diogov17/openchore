@@ -74,6 +74,17 @@ func errorCode(t *testing.T, resp *http.Response) string {
 
 // =================== SESSIONS ===================
 
+func TestCalendarRoutesRequireProfileSession(t *testing.T) {
+	env := setupTest(t)
+	env.createAdmin(t)
+	env.expectStatus(t, "GET", "/api/google-calendar", nil, nil, http.StatusUnauthorized)
+	env.expectStatus(t, "POST", "/api/google-calendar/connect", nil, nil, http.StatusUnauthorized)
+	env.expectStatus(t, "POST", "/api/google-calendar/events", map[string]any{"chore_id": 1, "timezone": "UTC"}, nil, http.StatusUnauthorized)
+	kid := env.createChild(t, "Calendar kid")
+	cookie := sessionCookie(t, env.login(t, kid, "", http.StatusOK))
+	env.expectStatus(t, "GET", "/api/google-calendar", nil, cookieHeaders(cookie), http.StatusOK)
+}
+
 func TestLegacyUserIDHeaderIsNotTrusted(t *testing.T) {
 	env := setupTest(t)
 	env.createAdmin(t)

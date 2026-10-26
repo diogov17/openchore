@@ -1,4 +1,25 @@
 {
+  "calendar": {
+    "title": "Google Calendar",
+    "settingsHelp": "Connect your Google account and choose where to add chores. This connection belongs to your profile.",
+    "loadError": "Could not load Google Calendar. Close and reopen to try again.",
+    "notConfigured": "Google Calendar needs a one-time setup by the server owner before accounts can connect.",
+    "reconnectHelp": "Reconnect your Google account to restore calendar access.",
+    "connect": "Connect Google account",
+    "reconnect": "Reconnect Google account",
+    "disconnect": "Disconnect",
+    "connected": "Your Google account is connected.",
+    "defaultCalendar": "Default calendar",
+    "add": "Add to Google Calendar",
+    "connectFirst": "Connect Google Calendar in Me → Settings first.",
+    "chosenCalendar": "Calendar: {{name}}",
+    "assigneesHelp": "Adds this chore to each assigned person's chosen Google calendar. Each person connects their account under Me → Settings. Shared chores use all adults' calendars.",
+    "creationHelp": "Removing a person removes their event. Schedule changes update the event. Without an available-at time, it is all-day. Repeating schedules create repeating events. Missing connections and failed updates retry automatically.",
+    "choreSaved": "Your chore is saved with calendar sync enabled. Some calendar updates are pending. Retry now, or finish and let OpenChore retry automatically.",
+    "retry": "Retry calendar add",
+    "keepChore": "Finish and retry later",
+    "connectFailed": "Google Calendar was not connected. Try again and allow both calendar permissions."
+  },
   "chores": {
     "deleteError": "Could not delete this chore. Please try again.",
     "typeHelp": {

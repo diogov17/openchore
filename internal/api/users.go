@@ -15,6 +15,7 @@ import (
 type UserHandler struct {
 	store      *store.Store
 	dispatcher *webhook.Dispatcher
+	calendar   *GoogleCalendarHandler
 }
 
 func NewUserHandler(s *store.Store, dispatcher *webhook.Dispatcher) *UserHandler {
@@ -442,7 +443,11 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := h.store.DeleteUser(r.Context(), id); err != nil {
+	deleteUser := func() error { return h.store.DeleteUser(r.Context(), id) }
+	if h.calendar != nil {
+		deleteUser = func() error { return h.calendar.DeleteProfile(r.Context(), id) }
+	}
+	if err := deleteUser(); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete user")
 		return
 	}
