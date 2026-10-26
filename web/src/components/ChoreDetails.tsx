@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../AuthContext';
 import { api } from '../api';
@@ -15,21 +15,25 @@ export function ChoreDetails({ chore, onClose, onChanged }: { chore: ScheduledCh
   const { user } = useAuth();
   const [editing, setEditing] = useState<Chore | null>(null);
   const [users, setUsers] = useState<User[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState('');
-  const edit = async () => {
-    setBusy(true); setError('');
-    try { const [loadedChore, people] = await Promise.all([api.chores.get(chore.chore_id), api.users.list()]); setUsers(people); setEditing(loadedChore); }
-    catch { setError(t('kid.errors.couldntSave')); }
-    finally { setBusy(false); }
-  };
-  if (editing) return <EditChoreModal chore={editing} users={users} isOpen onClose={() => { onChanged?.(); onClose(); }} onSaved={() => onChanged?.()} renderSchedules={(id, people) => <ScheduleManager choreId={id} users={people} />} renderTriggers={(id, people) => <TriggerManager choreId={id} users={people} />} />;
+  const canEdit = user?.role === 'admin';
+  useEffect(() => {
+    if (!canEdit) return;
+    let live = true;
+    setEditing(null); setError('');
+    Promise.all([api.chores.get(chore.chore_id), api.users.list()])
+      .then(([loadedChore, people]) => { if (live) { setUsers(people); setEditing(loadedChore); } })
+      .catch(() => { if (live) setError(t('kid.errors.couldntSave')); });
+    return () => { live = false; };
+  }, [canEdit, chore.chore_id, attempt, t]);
+  if (canEdit && editing) return <EditChoreModal chore={editing} users={users} isOpen onClose={() => { onChanged?.(); onClose(); }} onSaved={() => onChanged?.()} renderSchedules={(id, people) => <ScheduleManager choreId={id} users={people} />} renderTriggers={(id, people) => <TriggerManager choreId={id} users={people} />} />;
   return <Modal isOpen onClose={onClose} title={chore.title} maxWidth="600px">
     <div className={ui.page}>
-      {chore.description && <p className={ui.sectionDesc}>{chore.description}</p>}
-      {user?.role === 'admin' && <button type="button" className={ui.btn} onClick={() => void edit()} disabled={busy}>{t('chores.editOptions')}</button>}
-      {error && <p role="alert">{error}</p>}
-      <ChoreHistory choreId={chore.chore_id} />
+      {canEdit ? error ? <><p role="alert">{error}</p><button type="button" className={ui.btn} onClick={() => setAttempt(n => n + 1)}>{t('chores.editOptions')}</button></> : <p role="status">{t('chores.loading')}</p> : <>
+        {chore.description && <p className={ui.sectionDesc}>{chore.description}</p>}
+        <ChoreHistory choreId={chore.chore_id} />
+      </>}
     </div>
   </Modal>;
 }

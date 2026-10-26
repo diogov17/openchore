@@ -137,3 +137,6 @@
 @keyframes edit-spin {
   to { transform: rotate(360deg); }
 }
+.historyButton {
+  composes: closeBtn from '../Modal/Modal.module.css';
+}

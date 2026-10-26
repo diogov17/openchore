@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pause, Play, RefreshCw } from 'lucide-react';
+import { History, Pause, Play, RefreshCw, Trash2 } from 'lucide-react';
 import Modal from '../Modal/Modal';
 import { api, APIError } from '../../api';
 import type { Chore, User } from '../../types';
@@ -24,6 +24,12 @@ interface Props {
 
 const EditChoreModal: React.FC<Props> = ({ chore, isOpen, onClose, onSaved, users, renderSchedules, renderTriggers }) => {
   const { t } = useTranslation();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const historyButton = useRef<HTMLButtonElement>(null);
+  const backButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (isOpen) (historyOpen ? backButton : historyButton).current?.focus({ preventScroll: true });
+  }, [historyOpen, isOpen]);
   const [title, setTitle] = useState(chore.title);
   const [resetDaily, setResetDaily] = useState(chore.reset_daily ?? false);
   const [description, setDescription] = useState(chore.description);
@@ -36,6 +42,7 @@ const EditChoreModal: React.FC<Props> = ({ chore, isOpen, onClose, onSaved, user
   const [requiresPhoto, setRequiresPhoto] = useState(chore.requires_photo);
   const [photoSource, setPhotoSource] = useState<'child' | 'external' | 'both'>(chore.photo_source || 'child');
   const [saving, setSaving] = useState(false);
+  const deleting = useRef(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
@@ -96,6 +103,7 @@ const EditChoreModal: React.FC<Props> = ({ chore, isOpen, onClose, onSaved, user
   };
 
   const handleSave = async () => {
+    if (saving || deleting.current) return;
     setSaving(true);
     setError('');
     setSaved(false);
@@ -121,9 +129,34 @@ const EditChoreModal: React.FC<Props> = ({ chore, isOpen, onClose, onSaved, user
     setSaving(false);
   };
 
+  const handleDelete = async () => {
+    if (saving || deleting.current || !window.confirm(t('admin.choresTab.confirmDelete', { name: chore.title }))) return;
+    deleting.current = true;
+    setSaving(true); setError('');
+    audioRef.current?.pause();
+    try {
+      await api.chores.delete(chore.id);
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : t('chores.deleteError'));
+    } finally {
+      deleting.current = false;
+      setSaving(false);
+    }
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t('admin.editChore.modalTitle', { title: chore.title })} maxWidth="640px">
-      <details style={{ marginBottom: 20 }}><summary>{t('chores.history')}</summary><ChoreHistory choreId={chore.id} /></details>
+    <Modal isOpen={isOpen} onClose={() => { if (deleting.current) return; if (historyOpen) setHistoryOpen(false); else onClose(); }} title={historyOpen ? `${t('chores.history')} · ${chore.title}` : t('admin.editChore.modalTitle', { title: chore.title })} maxWidth="640px" headerActions={!historyOpen && <>
+      <button type="button" className={styles.historyButton} disabled={saving} aria-label={t('admin.choresTab.deleteAriaLabel', { name: chore.title })} title={t('admin.choresTab.deleteTitle')} onClick={() => void handleDelete()}><Trash2 aria-hidden="true" /></button>
+      <button ref={historyButton} type="button" className={styles.historyButton} disabled={saving} aria-label={t('chores.history')} title={t('chores.history')} onClick={() => { audioRef.current?.pause(); setHistoryOpen(true); }}><History aria-hidden="true" /></button>
+    </>}>
+      {historyOpen && <>
+        <button ref={backButton} type="button" className={styles.btnSecondary} onClick={() => setHistoryOpen(false)}>{t('chores.backToChore')}</button>
+        <ChoreHistory choreId={chore.id} />
+      </>}
+      <div hidden={historyOpen}>
+      {error && <p className={styles.error} role="alert">{error}</p>}
       {/* --- Chore details --- */}
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>{t('admin.editChore.sectionDetails')}</h3>
@@ -188,7 +221,6 @@ const EditChoreModal: React.FC<Props> = ({ chore, isOpen, onClose, onSaved, user
 
           <div className={styles.saveRow}>
             {saved && <span className={styles.saved} role="status"><Icon name="check" /> {t('admin.editChore.savedLabel')}</span>}
-            {error && <span className={styles.error} role="alert">{error}</span>}
             <button type="button" className={styles.btnPrimary} onClick={handleSave} disabled={saving || !title.trim()}>
               <Icon name="check" /> {saving ? t('admin.editChore.savingLabel') : t('admin.editChore.saveDetailsBtn')}
             </button>
@@ -249,6 +281,7 @@ const EditChoreModal: React.FC<Props> = ({ chore, isOpen, onClose, onSaved, user
       <hr className={styles.divider} />
 
       {renderTriggers(chore.id, users)}
+      </div>
     </Modal>
   );
 };

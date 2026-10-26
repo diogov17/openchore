@@ -10,6 +10,7 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
+  headerActions?: React.ReactNode;
   children: React.ReactNode;
   maxWidth?: string;
   /**
@@ -36,7 +37,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([t
  * (so no ancestor can clip it) and copies the nearest `data-theme` /
  * `data-person` onto its own root, so tokens and dials still apply.
  */
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = '600px', theme, person, className }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, headerActions, children, maxWidth = '600px', theme, person, className }) => {
   const { t } = useTranslation();
   const anchorRef = useRef<HTMLSpanElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -63,7 +64,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
       }
       if (e.key !== 'Tab' || !cardRef.current) return;
       // Keep focus inside the dialog.
-      const items = Array.from(cardRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
+      const items = Array.from(cardRef.current.querySelectorAll<HTMLElement>(FOCUSABLE))
+        .filter(item => !item.closest('[hidden], [inert]'));
       if (items.length === 0) return;
       const first = items[0];
       const last = items[items.length - 1];
@@ -122,9 +124,12 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
             {title && (
               <div className={styles.header}>
                 <h2 className={styles.title} id={titleId}>{title}</h2>
+                <div className={styles.headerActions}>
+                {headerActions}
                 <button type="button" className={styles.closeBtn} onClick={onClose} aria-label={t('admin.modal.close')}>
                   <X aria-hidden />
                 </button>
+                </div>
               </div>
             )}
             <div className={styles.body}>{children}</div>

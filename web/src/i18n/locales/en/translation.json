@@ -1,5 +1,6 @@
 {
   "chores": {
+    "deleteError": "Could not delete this chore. Please try again.",
     "typeHelp": {
       "title": "About chore types",
       "required": "Must-do responsibilities. Completing these unlocks Every day points and helps unlock Bonus chores.",
@@ -38,6 +39,7 @@
     "undo": "Undo",
     "done": "Done ({{count}})",
     "history": "Chore history",
+    "backToChore": "Back to chore",
     "historyError": "Could not load chore history. Close and reopen to try again.",
     "loading": "Loading…",
     "noHistory": "No history yet.",

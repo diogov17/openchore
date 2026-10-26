@@ -1,5 +1,7 @@
 {
   "chores": {
+    "deleteError": "Diese Aufgabe konnte nicht gelöscht werden. Bitte versuche es erneut.",
+    "backToChore": "Zurück zur Aufgabe",
     "typeHelp": {
       "title": "Aufgabenarten erklärt",
       "required": "Pflichtaufgaben. Ihre Erledigung schaltet die Punkte für tägliche Aufgaben frei und hilft, Bonusaufgaben freizuschalten.",
