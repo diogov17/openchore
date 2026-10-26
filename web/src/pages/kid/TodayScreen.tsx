@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DayProgress, Greeting, Icon, catFromCategory, salutationFor, type DayProgressItem } from '../../design';
 import { QuickChore } from '../../components/QuickChore/QuickChore';
+import CreateChoreWizard from '../../components/CreateChoreWizard/CreateChoreWizard';
 import ui from '../../components/admin/ui.module.css';
 import type { HomeBacklogItem, ScheduledChore, User } from '../../types';
 import { formatDuration, gates, isDone, type ChoreView } from './choreView';
@@ -181,7 +182,9 @@ export function TodayScreen({ user, data, now, topBar, viewOf, tts, onToggle, on
         </section>}
       </section>
       {!user.paused && <button type="button" className={s.addChore} onClick={() => setAdding(true)} title={t('chores.add')} aria-label={t('chores.add')}><Icon name="plus" /></button>}
-      {adding && <QuickChore user={user} onClose={() => setAdding(false)} onSaved={() => void data.refreshAll()} />}
+      {adding && (user.role === 'admin'
+        ? <CreateChoreWizard isOpen todayUser={user} users={data.people.some(person => person.id === user.id) ? data.people : [user, ...data.people]} onClose={() => setAdding(false)} onComplete={() => void data.refreshAll()} />
+        : <QuickChore user={user} onClose={() => setAdding(false)} onSaved={() => void data.refreshAll()} />)}
 
       {/* Goals: under the list on a phone, under the hero on a tablet. */}
       {commitments.length > 0 && (

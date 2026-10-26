@@ -7,7 +7,7 @@ import i18n from '../../i18n';
 import type { Chore, User } from '../../types';
 import { QuickChore } from './QuickChore';
 
-vi.mock('../../api', () => ({ api: { chores: { quickAdd: vi.fn() }, users: { list: vi.fn() } } }));
+vi.mock('../../api', () => ({ api: { chores: { quickAdd: vi.fn() }, users: { list: vi.fn() }, googleCalendar: { status: vi.fn().mockResolvedValue({ configured: false, connected: false, calendar_id: '', calendars: [] }) } } }));
 const user: User = { id: 7, name: 'Alex', role: 'admin', avatar_url: '', theme: 'sunroom', paused: false, has_pin: false, auth_providers: [], created_at: '' };
 beforeAll(async () => { await i18n.changeLanguage('en'); });
 beforeEach(() => { vi.mocked(api.chores.quickAdd).mockReset().mockResolvedValue({ id: 42 } as Chore); vi.mocked(api.users.list).mockResolvedValue([user]); });

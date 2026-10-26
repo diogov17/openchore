@@ -294,6 +294,7 @@
         "weekly": "Wöchentlich (Tage auswählen)"
       },
       "step": {
+        "title": "Titel",
         "details": "Details",
         "review": "Prüfen",
         "schedule": "Zeitplan"

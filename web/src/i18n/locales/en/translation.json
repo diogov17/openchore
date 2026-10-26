@@ -294,6 +294,7 @@
         "weekly": "Weekly (pick days)"
       },
       "step": {
+        "title": "Title",
         "details": "Details",
         "review": "Review",
         "schedule": "Schedule"

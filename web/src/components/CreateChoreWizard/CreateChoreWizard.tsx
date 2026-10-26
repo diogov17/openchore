@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import Modal from '../Modal/Modal';
@@ -11,6 +11,7 @@ import { useAuth } from '../../AuthContext';
 import { Icon, catFromCategory } from '../../design';
 import { CategoryLabel, CategoryPicker, IconPicker, IconWell, PersonName, PersonToggle } from '../admin/pickers';
 import styles from './CreateChoreWizard.module.css';
+import { CalendarCreationToggle } from '../GoogleCalendarSettings';
 
 interface ChoreData {
   resetDaily: boolean;
@@ -46,6 +47,8 @@ interface Props {
   onClose: () => void;
   onComplete: (choreId: number) => void;
   users: User[];
+  /** Today keeps name-only creation assigned to the person being viewed. */
+  todayUser?: User;
 }
 
 const DAY_LABELS = DAY_NAMES;
@@ -66,15 +69,35 @@ const defaultScheduleData: ScheduleData = {
   availableAt: '', dueBy: '', reminderAt: '', expiryPenalty: 'block', expiryPenaltyValue: 5,
 };
 
-const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users }) => {
+const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users: providedUsers, todayUser }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [step, setStep] = useState(0);
-  const [chore, setChore] = useState<ChoreData>({ ...defaultChoreData });
-  const [schedule, setSchedule] = useState<ScheduleData>({ ...defaultScheduleData });
+  const initialChore = (): ChoreData => ({ ...defaultChoreData, ...(todayUser ? { category: 'independent', points: 0, estimatedMinutes: 0 } : {}) });
+  const initialSchedule = (): ScheduleData => ({ ...defaultScheduleData, ...(todayUser ? { selectedUsers: [todayUser.id], scheduleType: 'oneoff', specificDate: localDateStr(new Date()) } : {}) });
+  const [chore, setChore] = useState<ChoreData>(initialChore);
+  const [schedule, setSchedule] = useState<ScheduleData>(initialSchedule);
+  const busy = useRef(false);
+  const titleInput = useRef<HTMLInputElement>(null);
+  const [message, setMessage] = useState('');
+  const [addToCalendar, setAddToCalendar] = useState(false);
+  const [calendarRetry, setCalendarRetry] = useState<{ id: number; another: boolean } | null>(null);
+  const calendarRetryButton = useRef<HTMLButtonElement>(null);
+  const [createdDraft, setCreatedDraft] = useState<number | null>(null);
+  const savedSchedules = useRef(new Set<string>());
   const [skipSchedule, setSkipSchedule] = useState(false);
   const [creating, setCreating] = useState(false);
+  useEffect(() => { if (calendarRetry && !creating) calendarRetryButton.current?.focus(); }, [calendarRetry, creating]);
   const [error, setError] = useState('');
+  const [loadedUsers, setLoadedUsers] = useState<User[] | null>(null);
+  const users = loadedUsers ?? providedUsers;
+  useEffect(() => {
+    if (!isOpen || !todayUser) return;
+    let cancelled = false;
+    api.users.list().then(people => { if (!cancelled) setLoadedUsers(people); })
+      .catch(() => { if (!cancelled) setError(t('chores.peopleError')); });
+    return () => { cancelled = true; };
+  }, [isOpen, todayUser?.id, t]);
 
   // AI description drafting (only offered when the server has AI configured)
   const aiStatus = useAIStatus();
@@ -95,15 +118,20 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
 
   const reset = () => {
     setStep(0);
-    setChore({ ...defaultChoreData });
-    setSchedule({ ...defaultScheduleData });
+    setChore(initialChore());
+    setSchedule(initialSchedule());
     setSkipSchedule(false);
     setCreating(false);
     setError('');
     setGeneratingDesc(false);
+    setMessage('');
+    setAddToCalendar(false);
+    setCalendarRetry(null);
+    setCreatedDraft(null);
+    savedSchedules.current.clear();
   };
 
-  const handleClose = () => { reset(); onClose(); };
+  const handleClose = () => { if (busy.current) return; if (createdDraft) onComplete(createdDraft); reset(); onClose(); };
 
   const canNext0 = chore.title.trim().length > 0;
   const noScheduleTarget = !schedule.shared && schedule.selectedUsers.length === 0;
@@ -139,11 +167,29 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
     setSchedule(s => ({ ...s, selectedDays: days }));
   };
 
-  const handleCreate = async () => {
+  const finishCreation = (id: number, another: boolean) => {
+    setCalendarRetry(null); setCreatedDraft(null); savedSchedules.current.clear();
+    onComplete(id);
+    if (todayUser && another) {
+      setChore(c => ({ ...c, title: '', description: '' })); setStep(0); setError('');
+      setMessage(t('chores.saved'));
+      requestAnimationFrame(() => titleInput.current?.focus());
+    } else { reset(); if (todayUser) onClose(); }
+  };
+
+  const handleCreate = async (another = false) => {
+    if (busy.current || !canNext0) return;
+    busy.current = true;
     setCreating(true);
     setError('');
+    setMessage('');
     try {
-      const created = await api.chores.create({
+      if (calendarRetry) {
+        await api.googleCalendar.add(calendarRetry.id);
+        finishCreation(calendarRetry.id, calendarRetry.another);
+        return;
+      }
+      const created = createdDraft ? { id: createdDraft } : await api.chores.create({
         title: chore.title.trim(),
         description: chore.description.trim(),
         category: chore.category,
@@ -156,6 +202,7 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
         requires_photo: chore.requiresPhoto,
         photo_source: chore.requiresPhoto ? chore.photoSource : 'child',
       });
+      setCreatedDraft(created.id);
 
       if (!skipSchedule && (schedule.shared || schedule.selectedUsers.length > 0)) {
         const penaltyFields = schedule.dueBy
@@ -170,23 +217,21 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
           ...penaltyFields,
         };
 
-        const promises: Promise<{ userId: number }>[] = [];
+        const promises: Promise<unknown>[] = [];
+        const saveSchedule = (key: string, payload: Parameters<typeof api.chores.createSchedule>[1]) => {
+          if (savedSchedules.current.has(key)) return;
+          promises.push(api.chores.createSchedule(created.id, payload).then(() => { savedSchedules.current.add(key); }));
+        };
         const scheduledUsers = schedule.shared ? (user ? [user.id] : []) : schedule.selectedUsers;
         for (const userId of scheduledUsers) {
           if (schedule.scheduleType === 'weekly') {
             for (const day of schedule.selectedDays) {
-              promises.push(
-                api.chores.createSchedule(created.id, { assigned_to: userId, day_of_week: day, ...common }).then(() => ({ userId }))
-              );
+              saveSchedule(`${userId}:${day}`, { assigned_to: userId, day_of_week: day, ...common });
             }
           } else if (schedule.scheduleType === 'interval') {
-            promises.push(
-              api.chores.createSchedule(created.id, { assigned_to: userId, recurrence_interval: schedule.interval, recurrence_start: schedule.intervalStart, ...common }).then(() => ({ userId }))
-            );
+            saveSchedule(`${userId}:interval`, { assigned_to: userId, recurrence_interval: schedule.interval, recurrence_start: schedule.intervalStart, ...common });
           } else {
-            promises.push(
-              api.chores.createSchedule(created.id, { assigned_to: userId, specific_date: schedule.specificDate, ...common }).then(() => ({ userId }))
-            );
+            saveSchedule(`${userId}:date`, { assigned_to: userId, specific_date: schedule.specificDate, ...common });
           }
         }
 
@@ -195,14 +240,19 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
           .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
           .map(r => r.reason?.message || 'Unknown error');
         if (errors.length > 0) {
-          setError(t('admin.createChore.error.partialSchedule', { details: errors.join('; ') }));
+          throw new Error(t('admin.createChore.error.partialSchedule', { details: errors.join('; ') }));
         }
       }
 
-      onComplete(created.id);
-      reset();
+      if (addToCalendar) {
+        setCalendarRetry({ id: created.id, another });
+        await api.googleCalendar.add(created.id);
+      }
+      finishCreation(created.id, another);
     } catch (e: unknown) {
       setError(e instanceof Error && e.message ? e.message : t('admin.createChore.error.createFailed'));
+    } finally {
+      busy.current = false;
       setCreating(false);
     }
   };
@@ -210,14 +260,18 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
   const getUserName = (id: number) => users.find(u => u.id === id)?.name || t('admin.createChore.unknown');
   const cat = catFromCategory(chore.category);
 
-  // --- STEP 1: Chore Details ---
-  const renderStep0 = () => (
+  // Start with just a name; the remaining fields are optional details.
+  const renderTitle = () => (
     <div className={styles.formGrid}>
       <label className={styles.formGroup}>
         <span className={styles.label}>{t('admin.createChore.field.titleLabel')}</span>
-        <input className={styles.input} value={chore.title} onChange={e => setChore(c => ({ ...c, title: e.target.value }))} placeholder={t('admin.createChore.field.titlePlaceholder')} />
+        <input ref={titleInput} autoFocus={!!todayUser} className={styles.input} value={chore.title} maxLength={500} onChange={e => setChore(c => ({ ...c, title: e.target.value }))} placeholder={t('admin.createChore.field.titlePlaceholder')} />
       </label>
+    </div>
+  );
 
+  const renderDetails = () => (
+    <div className={styles.formGrid}>
       <IconPicker value={chore.icon} onChange={icon => setChore(c => ({ ...c, icon }))} cat={cat} label={t('admin.createChore.field.iconLabel')} />
 
       <div className={styles.formGroup}>
@@ -293,6 +347,7 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
   // --- STEP 2: Schedule ---
   const renderStep1 = () => (
     <div className={styles.formGrid}>
+      <CalendarCreationToggle enabled={addToCalendar} onChange={value => { setAddToCalendar(value); if (value) setSkipSchedule(false); }} />
       <p className={styles.helpText}>{t(chore.category === 'home' ? 'admin.createChore.schedule.homeHelpText' : 'admin.createChore.schedule.helpText')}</p>
 
       <label className={styles.checkRow}>
@@ -410,7 +465,6 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
 
     return (
       <div className={styles.review}>
-        {error && <p className={styles.error} role="alert">{error}</p>}
 
         <section className={styles.reviewSection}>
           <div className={styles.reviewHeader}>
@@ -456,7 +510,7 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
         <section className={styles.reviewSection}>
           <div className={styles.reviewHeader}>
             <h3 className={styles.reviewTitle}>{t('admin.createChore.review.scheduleTitle')}</h3>
-            <button type="button" className={styles.editLink} onClick={() => { setSkipSchedule(false); setStep(1); }}>{t('admin.createChore.review.edit')}</button>
+            <button type="button" className={styles.editLink} onClick={() => { setSkipSchedule(false); setStep(2); }}>{t('admin.createChore.review.edit')}</button>
           </div>
           {!skipSchedule && !noScheduleTarget ? (
             <dl className={styles.reviewList}>
@@ -504,6 +558,7 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
   };
 
   const stepTitles = [
+    t('admin.createChore.step.title'),
     t('admin.createChore.step.details'),
     t('admin.createChore.step.schedule'),
     t('admin.createChore.step.review'),
@@ -522,31 +577,48 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
         ))}
       </ol>
 
-      {step === 0 && renderStep0()}
-      {step === 1 && renderStep1()}
-      {step === 2 && renderStep2()}
+      {todayUser && <p className={styles.helpText}>{t('chores.defaults', { name: todayUser.name })}</p>}
+      {message && <p role="status">{message}</p>}
+      {error && <p className={styles.error} role="alert">{error}</p>}
+      {calendarRetry && <div className={styles.formGrid}>
+        <p role="status">{t('calendar.choreSaved')}</p>
+        <div className={styles.navRight}>
+          <button ref={calendarRetryButton} type="button" className={styles.btnPrimary} disabled={creating} onClick={() => void handleCreate()}>{t('calendar.retry')}</button>
+          <button type="button" className={styles.btnQuiet} disabled={creating} onClick={() => finishCreation(calendarRetry.id, calendarRetry.another)}>{t('calendar.keepChore')}</button>
+        </div>
+      </div>}
+      <fieldset disabled={creating || !!createdDraft} hidden={!!calendarRetry} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+        {step === 0 && renderTitle()}
+        {step === 1 && renderDetails()}
+        {step === 2 && renderStep1()}
+        {step === 3 && renderStep2()}
+      </fieldset>
 
-      <div className={styles.nav}>
+      <div className={styles.nav} hidden={!!calendarRetry}>
         <div className={styles.navLeft}>
           {step > 0 && (
-            <button type="button" className={styles.btnQuiet} onClick={() => setStep(step - 1)}>
+            <button type="button" className={styles.btnQuiet} disabled={creating || !!createdDraft} onClick={() => setStep(step - 1)}>
               <Icon name="back" /> {t('admin.createChore.nav.back')}
             </button>
           )}
         </div>
         <div className={styles.navRight}>
-          {step === 1 && (
-            <button type="button" className={styles.btnQuiet} onClick={() => { setSkipSchedule(true); setStep(2); }}>
+          {step === 2 && !todayUser && !addToCalendar && (
+            <button type="button" className={styles.btnQuiet} onClick={() => { setSkipSchedule(true); setStep(3); }}>
               {t('admin.createChore.nav.skip')}
             </button>
           )}
-          {step < 2 && (
-            <button type="button" className={styles.btnPrimary} disabled={step === 0 ? !canNext0 : !canNext1} onClick={() => setStep(step + 1)}>
+          {step < 3 && (
+            <button type="button" className={styles.btnPrimary} disabled={creating || !!createdDraft || (step === 2 ? !canNext1 || (addToCalendar && noScheduleTarget) : !canNext0)} onClick={() => { if (step === 2) setSkipSchedule(false); setStep(step + 1); }}>
               {t('admin.createChore.nav.next')} <Icon name="chev" />
             </button>
           )}
-          {step === 2 && (
-            <button type="button" className={styles.btnPrimary} onClick={handleCreate} disabled={creating}>
+          {todayUser && <>
+            <button type="button" className={styles.btnQuiet} disabled={creating || !canNext0 || !canNext1 || (addToCalendar && noScheduleTarget)} onClick={() => void handleCreate(true)}>{t('chores.saveAnother')}</button>
+            <button type="button" className={styles.btnPrimary} disabled={creating || !canNext0 || !canNext1 || (addToCalendar && noScheduleTarget)} onClick={() => void handleCreate()}>{t(creating ? 'chores.saving' : 'chores.save')}</button>
+          </>}
+          {step === 3 && !todayUser && (
+            <button type="button" className={styles.btnPrimary} onClick={() => void handleCreate()} disabled={creating}>
               {creating ? <><span className={styles.spinner} aria-hidden /> {t('admin.createChore.nav.creating')}</> : t('admin.createChore.nav.createChore')}
             </button>
           )}

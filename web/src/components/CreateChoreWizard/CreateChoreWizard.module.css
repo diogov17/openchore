@@ -62,6 +62,11 @@
   white-space: nowrap;
 }
 
+@media (max-width: 480px) {
+  .step { flex-direction: column; gap: 6px; }
+  .stepLabel { font-size: 12px; max-width: 100%; }
+}
+
 /* Form fields — shared base rules come from styles/forms.module.css via composes */
 .formGrid {
   composes: formGrid from '../../styles/forms.module.css';
@@ -326,6 +331,7 @@
 /* ---------- navigation ---------- */
 .nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
@@ -334,9 +340,12 @@
   border-top: 1px solid var(--line);
 }
 
+.nav[hidden] { display: none; }
+
 .navLeft,
 .navRight {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }
